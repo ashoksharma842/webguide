@@ -161,6 +161,50 @@ void ControlTask( void * pvParameters ){
   }
 }
 
+void updateOperatingMode(volatile uint8_t operatingModeArg) {
+  switch (operatingModeArg){
+    case AUTO_BUTTON :
+    key[AUTO_BUTTON].setFillcolor(TFT_YELLOW);
+    key[AUTO_BUTTON].drawButton(false, "A");
+    key[MANUAL_BUTTON].setFillcolor(TFT_CYAN);
+    key[MANUAL_BUTTON].drawButton(false, "M");
+    key[SC_BUTTON].setFillcolor(TFT_CYAN);
+    key[SC_BUTTON].drawButton(false, "C");
+    if(operatingMode != AUTO){
+      operatingMode = AUTO;
+      sensorData = &edgeData;
+      referenceData = &refEdgeData;
+      Serial.println("<AUTO>");
+    }
+  break;
+    case MANUAL_BUTTON :
+    key[AUTO_BUTTON].setFillcolor(TFT_CYAN);
+    key[AUTO_BUTTON].drawButton(false, "A");
+    key[MANUAL_BUTTON].setFillcolor(TFT_YELLOW);
+    key[MANUAL_BUTTON].drawButton(false, "M");
+    key[SC_BUTTON].setFillcolor(TFT_CYAN);
+    key[SC_BUTTON].drawButton(false, "C");
+    if(operatingMode != MANUAL){
+      operatingMode = MANUAL;
+      Serial.println("<MANUAL>");
+    }
+  break;
+    case SC_BUTTON :
+    key[AUTO_BUTTON].setFillcolor(TFT_CYAN);
+    key[AUTO_BUTTON].drawButton(false, "A");
+    key[MANUAL_BUTTON].setFillcolor(TFT_CYAN);
+    key[MANUAL_BUTTON].drawButton(false, "M");
+    key[SC_BUTTON].setFillcolor(TFT_YELLOW);
+    key[SC_BUTTON].drawButton(false, "C");
+    if(operatingMode != SC){
+      operatingMode = SC;
+      sensorData = &feedbackData;
+      referenceData = &refFeedbackData;
+      Serial.println("<SC>");
+    }
+  break;
+  }
+}
 //DisplayTask: display data and get input
 void DisplayTask( void * pvParameters ){
   Serial.print("Display running on core ");
@@ -168,6 +212,18 @@ void DisplayTask( void * pvParameters ){
   int prevRequiredCorrection = 88;
   int i = 0;
   for(;;){
+    if(!digitalRead(AUTObuttonPin)){
+      Serial.println("AUTO BUTTON PRESSED");
+      updateOperatingMode(AUTO_BUTTON);
+    }
+    if(!digitalRead(MANUALbuttonPin)){
+      Serial.println("MANUAL BUTTON PRESSED");
+      updateOperatingMode(MANUAL_BUTTON);
+    }
+    if(!digitalRead(SCbuttonPin)){
+      Serial.println("SC BUTTON PRESSED");
+      updateOperatingMode(SC_BUTTON);
+    }
 //-----------read LCD---------------
   uint16_t t_x = 0, t_y = 0; // To store the touch coordinates
 
@@ -232,44 +288,9 @@ void DisplayTask( void * pvParameters ){
         }
       break;
         case AUTO_BUTTON :
-        key[AUTO_BUTTON].setFillcolor(TFT_YELLOW);
-        key[AUTO_BUTTON].drawButton(false, "A");
-        key[MANUAL_BUTTON].setFillcolor(TFT_CYAN);
-        key[MANUAL_BUTTON].drawButton(false, "M");
-        key[SC_BUTTON].setFillcolor(TFT_CYAN);
-        key[SC_BUTTON].drawButton(false, "C");
-        if(operatingMode != AUTO){
-          operatingMode = AUTO;
-          sensorData = &edgeData;
-          referenceData = &refEdgeData;
-          Serial.println("AUTO");
-        }
-      break;
         case MANUAL_BUTTON :
-        key[AUTO_BUTTON].setFillcolor(TFT_CYAN);
-        key[AUTO_BUTTON].drawButton(false, "A");
-        key[MANUAL_BUTTON].setFillcolor(TFT_YELLOW);
-        key[MANUAL_BUTTON].drawButton(false, "M");
-        key[SC_BUTTON].setFillcolor(TFT_CYAN);
-        key[SC_BUTTON].drawButton(false, "C");
-        if(operatingMode != MANUAL){
-          operatingMode = MANUAL;
-          Serial.println("MANUAL");
-        }
-      break;
         case SC_BUTTON :
-        key[AUTO_BUTTON].setFillcolor(TFT_CYAN);
-        key[AUTO_BUTTON].drawButton(false, "A");
-        key[MANUAL_BUTTON].setFillcolor(TFT_CYAN);
-        key[MANUAL_BUTTON].drawButton(false, "M");
-        key[SC_BUTTON].setFillcolor(TFT_YELLOW);
-        key[SC_BUTTON].drawButton(false, "C");
-        if(operatingMode != SC){
-          operatingMode = SC;
-          sensorData = &feedbackData;
-          referenceData = &refFeedbackData;
-          Serial.println("SC");
-        }
+        updateOperatingMode(b);
       break;
         case FB_BUTTON :
         // key[FB_BUTTON].drawButton(false, "F/N");
