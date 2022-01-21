@@ -157,7 +157,8 @@ void ControlTask( void * pvParameters ){
     if(operatingMode != MANUAL){
       actuatorStatus = ApplyCorrection(requiredCorrection);
     }
-    delay(100);
+    delay(10);
+//    yield();
   }
 }
 
@@ -344,7 +345,8 @@ void DisplayTask( void * pvParameters ){
 //    Serial.print(**sensorData);Serial.print(" -> ");Serial.println(requiredCorrection);
     prevRequiredCorrection = requiredCorrection;
   }
-  delay(100);
+  delay(10);
+//  yield();
   }
 }
 

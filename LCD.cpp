@@ -136,6 +136,7 @@ void displaySensor(uint8_t guidingMode, int16_t color){
 void displaySensorData(uint8_t guidingMode, volatile int* sensorData){
   volatile int dispData = ((*sensorData) * 100) / 4095;
   static int prevDispData = 0;
+  if(dispData == prevDispData) return;
   static int dispDataXpos = 55;
   tft.setCursor(dispDataXpos, 50);
   tft.setTextColor(TFT_BLACK, TFT_BLUE);
@@ -161,6 +162,7 @@ void displaySensorData(uint8_t guidingMode, volatile int* sensorData){
 void displayFeedbackData(uint8_t guidingMode, volatile int* sensorData){
   volatile int dispData = ((*sensorData) * 100) / 4095;
   static int prevDispData = 0;
+  if(dispData == prevDispData) return;
 //  Serial.println(dispData);
   int dispDataProcessed = map(dispData,0,100,0,50);
   tft.fillRect(width_per100(26), height_per75(61), width_per100(50), height_per75(4), TFT_BLACK);//bottom
@@ -174,9 +176,16 @@ void displayFeedbackData(uint8_t guidingMode, volatile int* sensorData){
 void displayCurrentData(volatile int currentData){
   volatile int dispData = ((currentData) * 100) / 4095;
   static int prevDispData = 0;
+  if(dispData == prevDispData) return;
 //  Serial.println(dispData);
   int dispDataProcessed = map(dispData,0,100,0,50);
   tft.fillRect(width_per100(4), height_per75(5), width_per100(4), height_per75(50), TFT_BLACK);//clear
   tft.fillRect(width_per100(4), height_per75(5+50-dispDataProcessed), width_per100(4), height_per75(dispDataProcessed), TFT_RED);//fill
-
+  tft.setCursor(5, 190);
+  tft.setTextColor(TFT_BLACK, TFT_RED);
+  tft.print(prevDispData);
+  tft.setCursor(5, 190);
+  tft.setTextColor(TFT_WHITE, TFT_RED);
+  tft.print(dispData);
+  prevDispData = dispData;
 }
