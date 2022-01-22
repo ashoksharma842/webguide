@@ -26,6 +26,8 @@
 #define  LEFT_BUTTON      6
 #define  RIGHT_BUTTON     7
 
+#define SAMPLE_COUNT      10
+
 // This is the file name used to store the calibration data
 // You can change this to create new calibration files.
 // The SPIFFS file name must start with "/".
@@ -40,8 +42,10 @@ void drawButtons(TFT_eSPI_Button key[]);
 uint16_t width_per100(uint8_t widthPer100);
 uint16_t height_per75(uint8_t heightPer75);
 void displaySensor(uint8_t guidingMode, int16_t color);
-void displaySensorData(uint8_t guidingMode, volatile int* sensorData);
-void displayFeedbackData(uint8_t feedBackType, volatile int* feedbackData);
+void displaySensorData(uint8_t guidingMode, volatile int sensorData);
+void displayFeedbackData(uint8_t feedBackType, volatile int feedbackData);
 void displayCurrentData(volatile int currentData);
+int getDispEdgeData(volatile int* edgeData);
+int getDispFeedbackData(volatile int* feedbackData);
 
 #endif //LCD_H

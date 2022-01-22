@@ -328,13 +328,17 @@ void DisplayTask( void * pvParameters ){
       }
     }
   }
-  if(prevEdgeData != *edgeData){
-    displaySensorData(guidingMode, edgeData);
-    prevEdgeData = *edgeData;
+  static int dispEdgeData;
+  dispEdgeData = getDispEdgeData(edgeData);
+  if(prevEdgeData != dispEdgeData){
+    displaySensorData(guidingMode, dispEdgeData);
+    prevEdgeData = dispEdgeData;
   }
-  if(prevFeedbackData != *feedbackData){
-    displayFeedbackData(feedBackType, feedbackData);
-    prevFeedbackData = *feedbackData;
+  static int dispFeedbackData;
+  dispFeedbackData = getDispFeedbackData(feedbackData);
+  if(prevFeedbackData != dispFeedbackData){
+    displayFeedbackData(feedBackType, dispFeedbackData);
+    prevFeedbackData = dispFeedbackData;
   }
 //  Serial.println(adcData[0]);
   if(prevCurrentData != adcData[0]){
