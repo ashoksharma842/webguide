@@ -253,7 +253,7 @@ void DisplayTask( void * pvParameters ){
         key[LEFT_BUTTON].setFillcolor(TFT_YELLOW);
         key[LEFT_BUTTON].drawButton(false, "<");
         if (operatingMode == AUTO){
-          if(gain > 10){
+          if(gain > 50){
             gain = gain - 10;
           }
         }
