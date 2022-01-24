@@ -41,7 +41,7 @@ const int enable1Pin = 14;
 volatile uint8_t operatingMode = MANUAL;
 volatile uint8_t guidingMode = SENSOR1;
 volatile uint8_t feedBackType = NAMUR;
-volatile uint8_t gain = 1;
+volatile uint8_t gain = 100;
 
 // Setting PWM properties
 const int freq = 20000;
@@ -233,18 +233,14 @@ void DisplayTask( void * pvParameters ){
         key[LEFT_BUTTON].drawButton(false, "<");
         if(operatingMode == MANUAL){
           ApplyCorrection(-80);
-        } else if (operatingMode == AUTO){
-          if(gain > 1) gain--;
         }
-        delay(100);
       break;
         case RIGHT_BUTTON :
         key[RIGHT_BUTTON].setFillcolor(TFT_YELLOW);
         key[RIGHT_BUTTON].drawButton(false, ">");
-        if (operatingMode == AUTO){
-          if(gain < 100)gain++;
+        if(operatingMode == MANUAL){
+          ApplyCorrection(80);
         }
-        delay(100);
       break;
       }
     }
@@ -257,14 +253,18 @@ void DisplayTask( void * pvParameters ){
         key[LEFT_BUTTON].setFillcolor(TFT_YELLOW);
         key[LEFT_BUTTON].drawButton(false, "<");
         if (operatingMode == AUTO){
-          if(gain > 1) gain--;
+          if(gain > 10){
+            gain = gain - 10;
+          }
         }
       break;
         case RIGHT_BUTTON :
         key[RIGHT_BUTTON].setFillcolor(TFT_YELLOW);
         key[RIGHT_BUTTON].drawButton(false, ">");
         if (operatingMode == AUTO){
-          if(gain < 100)gain++;
+          if(gain < 250){
+            gain = gain + 10;
+          }
         }
       break;
       }
