@@ -10,11 +10,8 @@
 #include "controller.h"
 #include "lcd.h"
 #include "FS.h"
-
 #include <SPI.h>
-
 #include <TFT_eSPI.h>
-
 TFT_eSPI tft = TFT_eSPI();
 
 #define NUM_KEYS 8
@@ -63,26 +60,20 @@ volatile int* refFeedbackData;
 volatile int** sensorData;
 volatile int** referenceData;
 
-int prevEdgeData, prevFeedbackData, prevCurrentData;
+int prevEdgeData, prevFeedbackData, prevCurrentData, prevGain;
 
 int requiredCorrection = 0;
 int actuatorStatus = STOP;
 
 int32_t height, width;
 
-
-
 void setup() {
-  Serial.begin(115200);
-  
-    tft.init();
-
+  Serial.begin(115200); 
+  tft.init();
   // Set the rotation before we calibrate
   tft.setRotation(1);
-
   // call screen calibration
   touch_calibrate();
-
   // Clear screen
   tft.fillScreen(TFT_BLACK);
 
@@ -139,26 +130,17 @@ void setup() {
 void ControlTask( void * pvParameters ){
   Serial.print("Control running on core ");
   Serial.println(xPortGetCoreID());
-//  int requiredCorrection = 0;
   for(;;){
     read_adc_data(adcChannelNumbers, adcData);
-    /*Serial.print("[");
-    for(int i = 0; i < 5; i++){
-      Serial.print(adcData[i]);Serial.print(" ");
-    }
-    Serial.println("]");*/
-//    Serial.println(**sensorData);
     if((operatingMode != MANUAL) && (**sensorData != **referenceData)){
       requiredCorrection = CalculateCorrection();
     } else if (actuatorStatus != STOP){
-//      MoveActuator(STOP,0);
         ApplyCorrection(0);
     }
     if(operatingMode != MANUAL){
       actuatorStatus = ApplyCorrection(requiredCorrection);
     }
     delay(10);
-//    yield();
   }
 }
 
@@ -251,13 +233,38 @@ void DisplayTask( void * pvParameters ){
         key[LEFT_BUTTON].drawButton(false, "<");
         if(operatingMode == MANUAL){
           ApplyCorrection(-80);
+        } else if (operatingMode == AUTO){
+          if(gain > 1) gain--;
+        }
+        delay(100);
+      break;
+        case RIGHT_BUTTON :
+        key[RIGHT_BUTTON].setFillcolor(TFT_YELLOW);
+        key[RIGHT_BUTTON].drawButton(false, ">");
+        if (operatingMode == AUTO){
+          if(gain < 100)gain++;
+        }
+        delay(100);
+      break;
+      }
+    }
+    // Check if any key has been continously pressed
+    if (key[b].isPressed()) {
+      // Serial.println("Button " + (String)b + " pressed");
+      // key[b].drawButton(true, (String)(b));
+      switch(b){
+        case LEFT_BUTTON :
+        key[LEFT_BUTTON].setFillcolor(TFT_YELLOW);
+        key[LEFT_BUTTON].drawButton(false, "<");
+        if (operatingMode == AUTO){
+          if(gain > 1) gain--;
         }
       break;
         case RIGHT_BUTTON :
         key[RIGHT_BUTTON].setFillcolor(TFT_YELLOW);
         key[RIGHT_BUTTON].drawButton(false, ">");
-        if(operatingMode == MANUAL){
-          ApplyCorrection(80);
+        if (operatingMode == AUTO){
+          if(gain < 100)gain++;
         }
       break;
       }
@@ -294,7 +301,6 @@ void DisplayTask( void * pvParameters ){
         updateOperatingMode(b);
       break;
         case FB_BUTTON :
-        // key[FB_BUTTON].drawButton(false, "F/N");
         if((guidingMode != GM_NAMUR) && (operatingMode == SC)){
           guidingMode = GM_NAMUR;
           edgeData = &adcData[3];
@@ -340,17 +346,19 @@ void DisplayTask( void * pvParameters ){
     displayFeedbackData(feedBackType, dispFeedbackData);
     prevFeedbackData = dispFeedbackData;
   }
-//  Serial.println(adcData[0]);
   if(prevCurrentData != adcData[0]){
     displayCurrentData(adcData[0]);
     prevCurrentData = adcData[0];
+  }
+  if(prevGain != gain){
+    displayGain(gain);
+    prevGain = gain;
   }
   if((operatingMode == AUTO) && (prevRequiredCorrection != requiredCorrection)){
 //    Serial.print(**sensorData);Serial.print(" -> ");Serial.println(requiredCorrection);
     prevRequiredCorrection = requiredCorrection;
   }
   delay(10);
-//  yield();
   }
 }
 

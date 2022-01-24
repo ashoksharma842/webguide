@@ -195,6 +195,21 @@ void displayCurrentData(volatile int currentData){
   tft.print(dispData);
   prevDispData = dispData;
 }
+void displayGain(volatile int argGain){
+  volatile int dispGain = argGain;//((argGain) * 100) / 4095;
+  static int prevDispGain = 0;
+  if(dispGain == prevDispGain) return;
+  int dispDataProcessed = map(dispGain,0,100,0,50);
+  tft.fillRect(width_per100(94), height_per75(5), width_per100(4), height_per75(50), TFT_BLACK);//clear
+  tft.fillRect(width_per100(94), height_per75(5+50-dispDataProcessed), width_per100(4), height_per75(dispDataProcessed), TFT_RED);//fill
+  tft.setCursor(width_per100(90), 190);
+  tft.setTextColor(TFT_BLACK, TFT_RED);
+  tft.print(prevDispGain);
+  tft.setCursor(width_per100(90), 190);
+  tft.setTextColor(TFT_WHITE, TFT_RED);
+  tft.print(dispGain);
+  prevDispGain = dispGain;
+}
 
 int getDispEdgeData(volatile int* edgeData){
   static int dispDataBuffer[SAMPLE_COUNT];

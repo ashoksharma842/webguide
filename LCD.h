@@ -45,6 +45,7 @@ void displaySensor(uint8_t guidingMode, int16_t color);
 void displaySensorData(uint8_t guidingMode, volatile int sensorData);
 void displayFeedbackData(uint8_t feedBackType, volatile int feedbackData);
 void displayCurrentData(volatile int currentData);
+void displayGain(volatile int argGain);
 int getDispEdgeData(volatile int* edgeData);
 int getDispFeedbackData(volatile int* feedbackData);
 
