@@ -55,18 +55,20 @@ void MoveActuator(int direction, int dutyCycle)
   if(u8dutyCycle > 100){
   u8dutyCycle = 100;
   }
+  /* PINS and PWM are inverted, because they're driven via BJT
+     Hence by default it'll be HIGH and on making pin HIGH, output goes LOW*/
   if(direction == STOP){
-    digitalWrite(motor1Pin1, LOW);
-    digitalWrite(motor1Pin2, LOW);
-  } else if (direction == FORWARD){
-    digitalWrite(motor1Pin1, LOW);
+    digitalWrite(motor1Pin1, HIGH);
     digitalWrite(motor1Pin2, HIGH);
-  } else if (direction == BACKWARD){
+  } else if (direction == FORWARD){
     digitalWrite(motor1Pin1, HIGH);
     digitalWrite(motor1Pin2, LOW);
+  } else if (direction == BACKWARD){
+    digitalWrite(motor1Pin1, LOW);
+    digitalWrite(motor1Pin2, HIGH);
   }
   u8dutyCycle = map(u8dutyCycle,0,100,0,255);//100% to 255 counts
-  ledcWrite(pwmChannel, u8dutyCycle);
+  ledcWrite(pwmChannel, (255 - u8dutyCycle));
 }
 
 int ApplyCorrection(int requiredCorrection)
