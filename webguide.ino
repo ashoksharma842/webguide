@@ -130,12 +130,16 @@ void setup() {
 void ControlTask( void * pvParameters ){
   Serial.print("Control running on core ");
   Serial.println(xPortGetCoreID());
+  static uint8_t prevOperatingMode = SC;
   for(;;){
     read_adc_data(adcChannelNumbers, adcData);
     if((operatingMode != MANUAL) && (**sensorData != **referenceData)){
       requiredCorrection = CalculateCorrection();
-    } else if (actuatorStatus != STOP){
+    } else if ((actuatorStatus != STOP)&&(prevOperatingMode != MANUAL)){//in manual mode
         ApplyCorrection(0);
+    }
+    if(prevOperatingMode != operatingMode){
+        prevOperatingMode = operatingMode;
     }
     if(operatingMode != MANUAL){
       actuatorStatus = ApplyCorrection(requiredCorrection);
