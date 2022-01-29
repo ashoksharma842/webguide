@@ -28,7 +28,11 @@ void read_adc_data(int *channels, volatile int *data)
 {
   for(int i = 0; i< ADC_CHANNELS; i++){
 //    data[i] = analogRead(channels[i]);
-    data[i] = (analogRead(channels[i])*SENSOR_MAXVAL)/ADC_MAXVAL;
+    if(i == 0){
+      data[i] = (analogRead(channels[i])*10);
+    } else {
+      data[i] = (analogRead(channels[i])*SENSOR_MAXVAL)/ADC_MAXVAL;
+    }
   }
 }
 

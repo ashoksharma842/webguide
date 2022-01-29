@@ -133,10 +133,10 @@ void ControlTask( void * pvParameters ){
   static uint8_t prevOperatingMode = SC;
   for(;;){
     read_adc_data(adcChannelNumbers, adcData);
+//    Serial.println(adcData[0]);
     if(operatingMode != MANUAL){
       if(**sensorData != **referenceData){
         requiredCorrection = CalculateCorrection();
-//        Serial.println(requiredCorrection);
         actuatorStatus = ApplyCorrection(requiredCorrection);
       }
     } else if ((actuatorStatus != STOP)&&(prevOperatingMode != MANUAL)){//in manual mode
