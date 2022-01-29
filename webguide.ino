@@ -41,7 +41,7 @@ const int enable1Pin = 14;
 volatile uint8_t operatingMode = MANUAL;
 volatile uint8_t guidingMode = SENSOR1;
 volatile uint8_t feedBackType = NAMUR;
-volatile uint8_t gain = 100;
+volatile float gain = 1.0, prevGain = 0.0;
 
 // Setting PWM properties
 const int freq = 20000;
@@ -51,7 +51,7 @@ const int resolution = 8;
 //#define ADC_CHANNELS  5
 int adcChannelNumbers[ADC_CHANNELS] = {currentSensePin, sensor1Pin, sensor2Pin, namurPin, feedbackPin};
 volatile int adcData[ADC_CHANNELS] = {00, 00, 00, 00, 00};
-int refData[ADC_CHANNELS] = {ADC_MIDVAL, ADC_MIDVAL, ADC_MIDVAL, ADC_MIDVAL, ADC_MIDVAL};
+int refData[ADC_CHANNELS] = {SENSOR_MIDVAL, SENSOR_MIDVAL, SENSOR_MIDVAL, SENSOR_MIDVAL, SENSOR_MIDVAL};
 
 volatile int* edgeData;
 volatile int* feedbackData;
@@ -60,7 +60,7 @@ volatile int* refFeedbackData;
 volatile int** sensorData;
 volatile int** referenceData;
 
-int prevEdgeData, prevFeedbackData, prevCurrentData, prevGain;
+int prevEdgeData, prevFeedbackData, prevCurrentData;
 
 int requiredCorrection = 0;
 int actuatorStatus = STOP;
@@ -133,16 +133,17 @@ void ControlTask( void * pvParameters ){
   static uint8_t prevOperatingMode = SC;
   for(;;){
     read_adc_data(adcChannelNumbers, adcData);
-    if((operatingMode != MANUAL) && (**sensorData != **referenceData)){
-      requiredCorrection = CalculateCorrection();
+    if(operatingMode != MANUAL){
+      if(**sensorData != **referenceData){
+        requiredCorrection = CalculateCorrection();
+//        Serial.println(requiredCorrection);
+        actuatorStatus = ApplyCorrection(requiredCorrection);
+      }
     } else if ((actuatorStatus != STOP)&&(prevOperatingMode != MANUAL)){//in manual mode
-        ApplyCorrection(0);
+        actuatorStatus = ApplyCorrection(0);
     }
     if(prevOperatingMode != operatingMode){
         prevOperatingMode = operatingMode;
-    }
-    if(operatingMode != MANUAL){
-      actuatorStatus = ApplyCorrection(requiredCorrection);
     }
     delay(10);
   }
@@ -257,8 +258,8 @@ void DisplayTask( void * pvParameters ){
         key[LEFT_BUTTON].setFillcolor(TFT_YELLOW);
         key[LEFT_BUTTON].drawButton(false, "<");
         if (operatingMode == AUTO){
-          if(gain > 50){
-            gain = gain - 10;
+          if(gain > 0.5){
+            gain = gain - 0.10;
           }
         }
       break;
@@ -266,8 +267,8 @@ void DisplayTask( void * pvParameters ){
         key[RIGHT_BUTTON].setFillcolor(TFT_YELLOW);
         key[RIGHT_BUTTON].drawButton(false, ">");
         if (operatingMode == AUTO){
-          if(gain < 250){
-            gain = gain + 10;
+          if(gain < 2.50){
+            gain = gain + .10;
           }
         }
       break;

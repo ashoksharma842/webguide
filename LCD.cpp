@@ -134,7 +134,8 @@ void displaySensor(uint8_t guidingMode, int16_t color){
 }
 
 void displaySensorData(uint8_t guidingMode, volatile int sensorData){
-  volatile int dispData = ((sensorData) * 100) / 4095;
+//  volatile int dispData = ((sensorData) * 100) / 4095;
+  volatile int dispData = sensorData;
   static int prevDispData = 0;
   static int prevGuidingMode = 9;//not s1 or s2
   if(dispData == prevDispData) return;
@@ -166,7 +167,8 @@ void displaySensorData(uint8_t guidingMode, volatile int sensorData){
   }
 }
 void displayFeedbackData(uint8_t guidingMode, volatile int feedbackData){
-  volatile int dispData = ((feedbackData) * 100) / 4095;
+//  volatile int dispData = ((feedbackData) * 100) / 4095;
+  volatile int dispData = feedbackData;
   static int prevDispData = 0;
   if(dispData == prevDispData) return;
 //  Serial.println(dispData);
@@ -195,8 +197,8 @@ void displayCurrentData(volatile int currentData){
   tft.print(dispData);
   prevDispData = dispData;
 }
-void displayGain(volatile int argGain){
-  volatile int dispGain = argGain;//((argGain) * 100) / 4095;
+void displayGain(volatile float argGain){
+  volatile int dispGain = argGain*100;//((argGain) * 100) / 4095;
   static int prevDispGain = 0;
   if(dispGain == prevDispGain) return;
   int dispDataProcessed = map(dispGain,0,255,0,50);

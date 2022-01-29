@@ -14,6 +14,8 @@
 #define ADC_MIDVAL  2048
 #define ADC_MAXVAL  4095
 #define ADC_MINVAL  0
+#define SENSOR_MIDVAL  50
+#define SENSOR_MAXVAL  100
 
 extern const int sensor1Pin;
 extern const int sensor2Pin;
@@ -22,7 +24,7 @@ extern const int namurPin;
 extern const int currentSensePin;
 
 extern const int motor1Pin1, motor1Pin2;
-extern volatile uint8_t gain;
+extern volatile float gain;
 extern const int pwmChannel;
 
 extern volatile int* edgeData;

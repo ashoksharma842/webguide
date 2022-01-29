@@ -27,7 +27,8 @@ void DisplayInfo(void) {
 void read_adc_data(int *channels, volatile int *data)
 {
   for(int i = 0; i< ADC_CHANNELS; i++){
-    data[i] = analogRead(channels[i]);
+//    data[i] = analogRead(channels[i]);
+    data[i] = (analogRead(channels[i])*SENSOR_MAXVAL)/ADC_MAXVAL;
   }
 }
 
@@ -43,7 +44,7 @@ int CalculateCorrection (void)
   required_correction = (**referenceData) - (**sensorData);
 //  Serial.print(required_correction);
   required_correction *= (gain * 2);
-  required_correction = map(required_correction,0,4095,0,100);//return value from 0-100
+//  required_correction = map(required_correction,0,4095,0,100);//return value from 0-100
 //  Serial.print(" required_correction = ");Serial.println(required_correction);
   return required_correction;
 }
