@@ -14,6 +14,8 @@ TFT_eSPI tft = TFT_eSPI();         // Invoke custom library
 #define CALIBRATION_FILE "/TouchCalData1"
 #define REPEAT_CAL false
 
+TaskHandle_t TaskLCD;
+TaskHandle_t TaskCtrl;
 ButtonWidget btnL = ButtonWidget(&tft);//LEFT
 ButtonWidget btnR = ButtonWidget(&tft);//RIGHT
 ButtonWidget btnA = ButtonWidget(&tft);//AUTO
@@ -28,7 +30,7 @@ ButtonWidget btnS2 = ButtonWidget(&tft);//SENSOR2
 
 // Create an array of button instances to use in for() loops
 // This is more useful where large numbers of buttons are employed
-ButtonWidget* btn[] = {&btnL , &btnR, &btnA, &btnM, &btnC, &btnS};
+ButtonWidget* btn[] = {&btnL , &btnR, &btnA, &btnM, &btnC, &btnS, &btnS1, &btnS2};
 uint8_t buttonCount = sizeof(btn) / sizeof(btn[0]);
 uint8_t i = 1;uint8_t b = 2;
 void btn_pressAction(void)
@@ -58,28 +60,6 @@ void btn_releaseAction(void)
   }
 }
 
-void btnR_pressAction(void)
-{
-  if (btnR.justPressed()) {
-    btnR.drawSmoothButton(!btnR.getState(), 3, TFT_BLACK, btnR.getState() ? "OFF" : "ON");
-    Serial.print("Button toggled: ");
-    if (btnR.getState()) Serial.println("ON");
-    else  Serial.println("OFF");
-    btnR.setPressTime(millis());
-  }
-
-  // if button pressed for more than 1 sec...
-  if (millis() - btnR.getPressTime() >= 1000) {
-    Serial.println("Stop pressing my buttton.......");
-  }
-  else Serial.println("Right button is being pressed");
-}
-
-void btnR_releaseAction(void)
-{
-  // Not action
-}
-#if 1
 void initButtons() {
   uint16_t x = 10;
   uint16_t y = 190;
@@ -89,72 +69,71 @@ void initButtons() {
   btn[3]->initButtonUL(x+150, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "C" , 1);
   btn[4]->initButtonUL(x+200, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S" , 1);
   btn[5]->initButtonUL(x+250, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, ">" , 1);
+  btn[6]->initButtonUL(x+40, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S1" , 1);
+  btn[7]->initButtonUL(x+210, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S2" , 1);
 
-  for(i = 0; i < 6; i++, x += 50){
+  for(i = 0; i < 8; i++){
     btn[i]->setPressAction(btn_pressAction);
     btn[i]->setReleaseAction(btn_releaseAction);
     btn[i]->drawSmoothButton(false, 3, TFT_BLACK);
   }
   tft.setTextSize(3);
   tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
-  tft.drawFloat(12.3,1,60,80);
+  tft.drawNumber(50,110,80);
   tft.fillRect(10,170,300,10,TFT_YELLOW);
 }
-#else
-void initButtons() {
-  uint16_t x = (tft.width() - BUTTON_W) / 2;
-  uint16_t y = tft.height() / 2 - BUTTON_H - 10;
-  btnL.initButtonUL(x, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "Button", 1);
-  btnL.setPressAction(btnL_pressAction);
-  btnL.setReleaseAction(btnL_releaseAction);
-  btnL.drawSmoothButton(false, 3, TFT_BLACK); // 3 is outline width, TFT_BLACK is the surrounding background colour for anti-aliasing
 
-  y = tft.height() / 2 + 10;
-  btnR.initButtonUL(x, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLACK, TFT_GREEN, "OFF", 1);
-  btnR.setPressAction(btnR_pressAction);
-  //btnR.setReleaseAction(btnR_releaseAction);
-  btnR.drawSmoothButton(false, 3, TFT_BLACK); // 3 is outline width, TFT_BLACK is the surrounding background colour for anti-aliasing
-}
-#endif
 void setup() {
   Serial.begin(115200);
   tft.begin();
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
   tft.setFreeFont(FF18);
-
   // Calibrate the touch screen and retrieve the scaling factors
   touch_calibrate();
   initButtons();
+
+  xTaskCreatePinnedToCore(TaskLCDcode, "TaskLCD", 10000, NULL, 1, &TaskLCD, 0);
+  delay(500);
+  xTaskCreatePinnedToCore(TaskCtrlcode, "TaskCtrl", 10000, NULL, 1, &TaskCtrl, 0);
+  delay(500);
 }
+void TaskCtrlcode( void * pvParameters ){
+  Serial.print("TaskCtrl running on core ");
+  Serial.println(xPortGetCoreID());
+  while(1){
+    Serial.print(".");
+    delay(500);
+  }
+}
+void TaskLCDcode( void * pvParameters ){
+  Serial.print("TaskLCD running on core ");
+  Serial.println(xPortGetCoreID());
+  while(1){
+    static uint32_t scanTime = millis();
+    uint16_t t_x = 9999, t_y = 9999; // To store the touch coordinates
 
-void loop() {
-  static uint32_t scanTime = millis();
-  uint16_t t_x = 9999, t_y = 9999; // To store the touch coordinates
-
-  // Scan keys every 50ms at most
-  if (millis() - scanTime >= 50) {
-    // Pressed will be set true if there is a valid touch on the screen
-    bool pressed = tft.getTouch(&t_x, &t_y);
-    scanTime = millis();
-    for (b = 0; b < buttonCount; b++) {
-      if (pressed) {
-//        Serial.print("x = ");Serial.print(t_x);
-//        Serial.print(" y = ");Serial.println(t_y);
-        if (btn[b]->contains(t_x, t_y)) {
-          Serial.print(b);
-          Serial.println(" button pressed");
-          btn[b]->press(true);
-          btn[b]->pressAction();
+    // Scan keys every 50ms at most
+    if (millis() - scanTime >= 50) {
+      // Pressed will be set true if there is a valid touch on the screen
+      bool pressed = tft.getTouch(&t_x, &t_y);
+      scanTime = millis();
+      for (b = 0; b < buttonCount; b++) {
+        if (pressed) {
+          if (btn[b]->contains(t_x, t_y)) {
+            Serial.print(b);
+            Serial.println(" button pressed");
+            btn[b]->press(true);
+            btn[b]->pressAction();
+          }
         }
-      }
-      else {
-        btn[b]->press(false);
-        btn[b]->releaseAction();
+        else {
+          btn[b]->press(false);
+          btn[b]->releaseAction();
+        }
       }
     }
   }
-
 }
 
 void touch_calibrate()
@@ -220,4 +199,7 @@ void touch_calibrate()
       f.close();
     }
   }
+}
+void loop() {
+//all code is run in tasks
 }
