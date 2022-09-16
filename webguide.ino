@@ -79,6 +79,7 @@ void initButtons() {
   }
   tft.setTextSize(3);
   tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
+  tft.setFreeFont(FF32);
   tft.drawNumber(50,110,80);
   tft.fillRect(10,170,300,10,TFT_YELLOW);
 }
