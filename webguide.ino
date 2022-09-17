@@ -1,52 +1,58 @@
-// Button widget demo, requires SPI display with touch screen
-
-// Requires widget library here:
-// https://github.com/Bodmer/TFT_eWidget
+/*
+ * Web guide controller
+ */
 
 #include <FS.h>
 #include "Free_Fonts.h" // Include the header file attached to this sketch
+#include <TFT_eSPI.h>
+#include <TFT_eWidget.h>
+#include "Controller.h"
+#include "Sensor.h"
+#include "Actuator.h"
 
-#include <TFT_eSPI.h>              // Hardware-specific library
-#include <TFT_eWidget.h>           // Widget library
-
-TFT_eSPI tft = TFT_eSPI();         // Invoke custom library
-
+TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite spr = TFT_eSprite(&tft);
+Controller controller = Controller();
+enum {bLeft, bAuto, bManual, bCenter, bSetup, bRight, bS1, bS2};
 #define CALIBRATION_FILE "/TouchCalData1"
 #define REPEAT_CAL false
+#define TEXT_SIZE 3
 
 TaskHandle_t TaskLCD;
 TaskHandle_t TaskCtrl;
 ButtonWidget btnL = ButtonWidget(&tft);//LEFT
-ButtonWidget btnR = ButtonWidget(&tft);//RIGHT
 ButtonWidget btnA = ButtonWidget(&tft);//AUTO
 ButtonWidget btnM = ButtonWidget(&tft);//MANUAL
 ButtonWidget btnC = ButtonWidget(&tft);//CENTER
 ButtonWidget btnS = ButtonWidget(&tft);//SETTING
+ButtonWidget btnR = ButtonWidget(&tft);//RIGHT
 ButtonWidget btnS1 = ButtonWidget(&tft);//SENSOR1
 ButtonWidget btnS2 = ButtonWidget(&tft);//SENSOR2
 
 #define BUTTON_W 50
 #define BUTTON_H 50
 
-// Create an array of button instances to use in for() loops
-// This is more useful where large numbers of buttons are employed
-ButtonWidget* btn[] = {&btnL , &btnR, &btnA, &btnM, &btnC, &btnS, &btnS1, &btnS2};
+ButtonWidget* btn[] = {&btnL, &btnA, &btnM, &btnC, &btnS, &btnR, &btnS1, &btnS2};
 uint8_t buttonCount = sizeof(btn) / sizeof(btn[0]);
-uint8_t i = 1;uint8_t b = 2;
-void btn_pressAction(void)
-{
+uint8_t b = 2;//for counting buttons
+int prevDispData = 1, dispData = 0, countForDataDisp = 0;
+void btn_pressAction(void){
   if (btn[b]->justPressed()) {
-    Serial.print(b);
-    Serial.println(" button just pressed");
     btn[b]->drawSmoothButton(true);
   }
-}
+  switch(b){
+    case(bAuto) : controller.setOperatingMode(AUTO);break;
+    case(bManual) : controller.setOperatingMode(MANUAL);break;
+    case(bCenter) : controller.setOperatingMode(SC);break;
+//    case(bSetup) : controller.setOperatingMode(MANUAL);break;
+    case(bS1) : controller.setGuidingMode(S1);break;
+    case(bS2) : controller.setGuidingMode(S2);break;
+  }
 
-void btn_releaseAction(void)
-{
+}
+void btn_releaseAction(void){
   static uint32_t waitTime = 1000;
   if (btn[b]->justReleased()) {
-    Serial.println("Left button just released");
     btn[b]->drawSmoothButton(false);
     btn[b]->setReleaseTime(millis());
     waitTime = 10000;
@@ -55,55 +61,63 @@ void btn_releaseAction(void)
     if (millis() - btn[b]->getReleaseTime() >= waitTime) {
       waitTime = 1000;
       btn[b]->setReleaseTime(millis());
-//      btn[b]->drawSmoothButton(!btnL.getState());
     }
   }
 }
-
-void initButtons() {
+void initButtons(){
   uint16_t x = 10;
   uint16_t y = 190;
-  btn[0]->initButtonUL(x, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, "<" , 1);
-  btn[1]->initButtonUL(x+50, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "A" , 1);
-  btn[2]->initButtonUL(x+100, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "M" , 1);
-  btn[3]->initButtonUL(x+150, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "C" , 1);
-  btn[4]->initButtonUL(x+200, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S" , 1);
-  btn[5]->initButtonUL(x+250, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, ">" , 1);
-  btn[6]->initButtonUL(x+40, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S1" , 1);
-  btn[7]->initButtonUL(x+210, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S2" , 1);
+  btn[0]->initButtonUL(x, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, "<" , TEXT_SIZE);
+  btn[1]->initButtonUL(x+50, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "A" , TEXT_SIZE);
+  btn[2]->initButtonUL(x+100, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "M" , TEXT_SIZE);
+  btn[3]->initButtonUL(x+150, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "C" , TEXT_SIZE);
+  btn[4]->initButtonUL(x+200, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "S" , TEXT_SIZE);
+  btn[5]->initButtonUL(x+250, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, ">" , TEXT_SIZE);
+  btn[6]->initButtonUL(x+40, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S1" , TEXT_SIZE);
+  btn[7]->initButtonUL(x+210, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S2" , TEXT_SIZE);
 
-  for(i = 0; i < 8; i++){
+  for(int i = 0; i < 8; i++){
     btn[i]->setPressAction(btn_pressAction);
     btn[i]->setReleaseAction(btn_releaseAction);
     btn[i]->drawSmoothButton(false, 3, TFT_BLACK);
   }
-  tft.setTextSize(3);
-  tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
-  tft.setFreeFont(FF32);
-  tft.drawNumber(50,110,80);
-  tft.fillRect(10,170,300,10,TFT_YELLOW);
 }
-
 void setup() {
   Serial.begin(115200);
   tft.begin();
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
-  tft.setFreeFont(FF18);
   // Calibrate the touch screen and retrieve the scaling factors
   touch_calibrate();
   initButtons();
+  tft.setTextSize(7);
+  tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
+  tft.drawNumber(60,110,80);
+  spr.createSprite(300, 10);
 
   xTaskCreatePinnedToCore(TaskLCDcode, "TaskLCD", 10000, NULL, 1, &TaskLCD, 0);
   delay(500);
-  xTaskCreatePinnedToCore(TaskCtrlcode, "TaskCtrl", 10000, NULL, 1, &TaskCtrl, 0);
+  xTaskCreatePinnedToCore(TaskCtrlcode, "TaskCtrl", 10000, NULL, 1, &TaskCtrl, 1);
   delay(500);
 }
 void TaskCtrlcode( void * pvParameters ){
   Serial.print("TaskCtrl running on core ");
   Serial.println(xPortGetCoreID());
+  eGuidingMode currentGuidingMode, prevGuidingMode;
+  eOperatingMode currentOperatingMode, prevOperatingMode;
   while(1){
-    Serial.print(".");
+    currentGuidingMode = controller.getGuidingMode();
+    currentOperatingMode = controller.getOperatingMode();
+    if(prevGuidingMode != currentGuidingMode){
+      Serial.print("Guiding mode:");
+      Serial.println(currentGuidingMode);
+      prevGuidingMode = currentGuidingMode;
+    }
+    if(prevOperatingMode != currentOperatingMode){
+      Serial.print("Operting mode:");
+      Serial.println(controller.getOperatingMode());
+      prevOperatingMode = currentOperatingMode;
+    }
     delay(500);
   }
 }
@@ -116,14 +130,13 @@ void TaskLCDcode( void * pvParameters ){
 
     // Scan keys every 50ms at most
     if (millis() - scanTime >= 50) {
+      countForDataDisp++;
       // Pressed will be set true if there is a valid touch on the screen
       bool pressed = tft.getTouch(&t_x, &t_y);
       scanTime = millis();
       for (b = 0; b < buttonCount; b++) {
         if (pressed) {
           if (btn[b]->contains(t_x, t_y)) {
-            Serial.print(b);
-            Serial.println(" button pressed");
             btn[b]->press(true);
             btn[b]->pressAction();
           }
@@ -134,11 +147,13 @@ void TaskLCDcode( void * pvParameters ){
         }
       }
     }
+     spr.fillRect(0,0,dispData,10,TFT_BLACK);
+     if(dispData++ >299) dispData = 0;
+     spr.fillRect(0,0,dispData,10,TFT_RED);
+     spr.pushSprite(10, 170);
   }
 }
-
-void touch_calibrate()
-{
+void touch_calibrate(){
   uint16_t calData[5];
   uint8_t calDataOK = 0;
 
