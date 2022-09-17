@@ -11,8 +11,9 @@
 #include "Actuator.h"
 
 TFT_eSPI tft = TFT_eSPI();
-TFT_eSprite spr = TFT_eSprite(&tft);
+TFT_eSprite sensorBar = TFT_eSprite(&tft);
 Controller controller = Controller();
+Sensor sensor = Sensor();
 enum {bLeft, bAuto, bManual, bCenter, bSetup, bRight, bS1, bS2};
 #define CALIBRATION_FILE "/TouchCalData1"
 #define REPEAT_CAL false
@@ -47,6 +48,8 @@ void btn_pressAction(void){
 //    case(bSetup) : controller.setOperatingMode(MANUAL);break;
     case(bS1) : controller.setGuidingMode(S1);break;
     case(bS2) : controller.setGuidingMode(S2);break;
+    case(bLeft) : sensor.setGuidePoint(sensor.getGuidePoint()-3);break;
+    case(bRight) : sensor.setGuidePoint(sensor.getGuidePoint()+3);break;
   }
 
 }
@@ -82,7 +85,7 @@ void initButtons(){
     btn[i]->drawSmoothButton(false, 3, TFT_BLACK);
   }
 }
-void setup() {
+void setup(){
   Serial.begin(115200);
   tft.begin();
   tft.setRotation(1);
@@ -93,7 +96,7 @@ void setup() {
   tft.setTextSize(7);
   tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
   tft.drawNumber(60,110,80);
-  spr.createSprite(300, 10);
+  sensorBar.createSprite(300, 10);
 
   xTaskCreatePinnedToCore(TaskLCDcode, "TaskLCD", 10000, NULL, 1, &TaskLCD, 0);
   delay(500);
@@ -147,10 +150,11 @@ void TaskLCDcode( void * pvParameters ){
         }
       }
     }
-     spr.fillRect(0,0,dispData,10,TFT_BLACK);
+     sensorBar.fillRect(0,0,dispData,10,TFT_BLACK);
      if(dispData++ >299) dispData = 0;
-     spr.fillRect(0,0,dispData,10,TFT_RED);
-     spr.pushSprite(10, 170);
+     sensorBar.fillRect(0,0,dispData,10,TFT_RED);
+     sensorBar.fillRect(sensor.getGuidePoint(),0,3,10,TFT_BLUE);
+     sensorBar.pushSprite(10, 170);
   }
 }
 void touch_calibrate(){
@@ -216,6 +220,6 @@ void touch_calibrate(){
     }
   }
 }
-void loop() {
+void loop(){
 //all code is run in tasks
 }
