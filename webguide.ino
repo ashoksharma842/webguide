@@ -12,8 +12,12 @@
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite sensorBar = TFT_eSprite(&tft);
+TFT_eSprite currentBar = TFT_eSprite(&tft);
 Controller controller = Controller();
 Sensor sensor = Sensor();
+int potPin = 34;
+int potValue =0;
+
 enum {bLeft, bAuto, bManual, bCenter, bSetup, bRight, bS1, bS2};
 #define CALIBRATION_FILE "/TouchCalData1"
 #define REPEAT_CAL false
@@ -93,10 +97,13 @@ void setup(){
   // Calibrate the touch screen and retrieve the scaling factors
   touch_calibrate();
   initButtons();
-  tft.setTextSize(7);
   tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
+  tft.setTextSize(7);
   tft.drawNumber(60,110,80);
   sensorBar.createSprite(300, 10);
+  currentBar.createSprite(10,150);
+    potValue = analogRead(potPin);
+    Serial.println(potValue);
 
   xTaskCreatePinnedToCore(TaskLCDcode, "TaskLCD", 10000, NULL, 1, &TaskLCD, 0);
   delay(500);
@@ -109,6 +116,8 @@ void TaskCtrlcode( void * pvParameters ){
   eGuidingMode currentGuidingMode, prevGuidingMode;
   eOperatingMode currentOperatingMode, prevOperatingMode;
   while(1){
+//    potValue = analogRead(potPin);
+//    Serial.println(potValue);
     currentGuidingMode = controller.getGuidingMode();
     currentOperatingMode = controller.getOperatingMode();
     if(prevGuidingMode != currentGuidingMode){
@@ -150,11 +159,19 @@ void TaskLCDcode( void * pvParameters ){
         }
       }
     }
-     sensorBar.fillRect(0,0,dispData,10,TFT_BLACK);
+     sensorBar.fillRect(0,0,(potValue*300)/4095,10,TFT_BLACK);
+     currentBar.fillRect(0,150-(dispData/2),10,dispData/2,TFT_BLACK);
      if(dispData++ >299) dispData = 0;
-     sensorBar.fillRect(0,0,dispData,10,TFT_RED);
+     potValue = analogRead(potPin);
+     if(!dispData)Serial.println((potValue*300)/4095);
+     sensorBar.fillRect(0,0,(potValue*300)/4095,10,TFT_RED);
+     currentBar.fillRect(0,150-(dispData/2),10,dispData/2,TFT_RED);
      sensorBar.fillRect(sensor.getGuidePoint(),0,3,10,TFT_BLUE);
      sensorBar.pushSprite(10, 170);
+     currentBar.pushSprite(10,10);
+     tft.setTextSize(2);
+     tft.drawNumber(dispData/2,5,155);
+
   }
 }
 void touch_calibrate(){
