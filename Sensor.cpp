@@ -1,8 +1,9 @@
 #include "Sensor.h"
-
-Sensor::Sensor(int gp)
+#include <Arduino.h>
+Sensor::Sensor(int gp, int adcPin)
 {
     m_guidePoint = gp;
+    m_adcPin = adcPin;
 }
 /***************************************************************************************
 ** Function name:           setGuidePoint
@@ -28,7 +29,7 @@ int Sensor :: getGuidePoint()
 ***************************************************************************************/
 int Sensor :: getData()
 {
-	return m_data;
+	return analogRead(m_adcPin);
 }
 
 /***************************************************************************************
