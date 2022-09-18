@@ -14,9 +14,10 @@ TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite sensorBar = TFT_eSprite(&tft);
 TFT_eSprite currentBar = TFT_eSprite(&tft);
 Controller controller = Controller();
-Sensor sensor1 = Sensor(50,34); // 50 gp, adc pin 34
-Sensor sensor2 = Sensor(50,35); // 50 gp, adc pin 34
+Sensor sensor1 = Sensor(50,32); // 50 gp, adc pin 32
+Sensor sensor2 = Sensor(50,33); // 50 gp, adc pin 33
 Sensor current = Sensor(50,25); // current sensor.
+Sensor limitSwitch = Sensor(50,35); // for servo centre NAMUR sensor
 Sensor *activeSensor = &sensor1; // used for guiding mode
 
 enum {bLeft, bAuto, bManual, bCenter, bSetup, bRight, bS1, bS2};
@@ -47,12 +48,12 @@ void btn_pressAction(void){
     btn[b]->drawSmoothButton(true);
   }
   switch(b){
-    case(bAuto) : controller.setOperatingMode(AUTO);break;
+    case(bAuto) : controller.setOperatingMode(AUTO);controller.getGuidingMode() == S1 ? activeSensor = &sensor1 : activeSensor = &sensor2;break;
     case(bManual) : controller.setOperatingMode(MANUAL);break;
-    case(bCenter) : controller.setOperatingMode(SC);break;
+    case(bCenter) : controller.setOperatingMode(SC);activeSensor = &limitSwitch;break;
 //    case(bSetup) : controller.setOperatingMode(MANUAL);break;
-    case(bS1) : controller.setGuidingMode(S1);activeSensor = &sensor1;break;
-    case(bS2) : controller.setGuidingMode(S2);activeSensor = &sensor2;break;
+    case(bS1) : controller.setGuidingMode(S1);if(controller.getOperatingMode()==AUTO)activeSensor = &sensor1;break;
+    case(bS2) : controller.setGuidingMode(S2);if(controller.getOperatingMode()==AUTO)activeSensor = &sensor2;break;
     case(bLeft) : activeSensor->setGuidePoint(activeSensor->getGuidePoint()-30);Serial.println(activeSensor->getGuidePoint());break;
     case(bRight) : activeSensor->setGuidePoint(activeSensor->getGuidePoint()+30);Serial.println(activeSensor->getGuidePoint());break;
   }
@@ -128,6 +129,13 @@ void TaskCtrlcode( void * pvParameters ){
       Serial.println(controller.getOperatingMode());
       prevOperatingMode = currentOperatingMode;
     }
+    if(currentOperatingMode){
+      int correction = activeSensor->getData() - activeSensor->getGuidePoint();
+      if(correction){
+        Serial.print("correction = ");
+        Serial.println(correction);
+      }
+    }
     delay(500);
   }
 }
@@ -159,11 +167,9 @@ void TaskLCDcode( void * pvParameters ){
     }
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_BLACK);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_BLACK);
-//    if(current.getData()++ >299) current.getData() = 0;
 
     sensorDispData = activeSensor->getData();
     currentDispData = (current.getData()*150)/4095;
-//    if(!current.getData())Serial.println((sensorDispData*300)/4095);
 
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_RED);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_RED);
