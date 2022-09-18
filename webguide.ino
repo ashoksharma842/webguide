@@ -16,6 +16,7 @@ TFT_eSprite currentBar = TFT_eSprite(&tft);
 Controller controller = Controller();
 Sensor sensor1 = Sensor(50,34); // 50 gp, adc pin 34
 Sensor sensor2 = Sensor(50,35); // 50 gp, adc pin 34
+Sensor current = Sensor(50,25); // current sensor.
 Sensor *activeSensor = &sensor1; // used for guiding mode
 
 enum {bLeft, bAuto, bManual, bCenter, bSetup, bRight, bS1, bS2};
@@ -52,8 +53,8 @@ void btn_pressAction(void){
 //    case(bSetup) : controller.setOperatingMode(MANUAL);break;
     case(bS1) : controller.setGuidingMode(S1);activeSensor = &sensor1;break;
     case(bS2) : controller.setGuidingMode(S2);activeSensor = &sensor2;break;
-    case(bLeft) : activeSensor->setGuidePoint(activeSensor->getGuidePoint()-3);break;
-    case(bRight) : activeSensor->setGuidePoint(activeSensor->getGuidePoint()+3);break;
+    case(bLeft) : activeSensor->setGuidePoint(activeSensor->getGuidePoint()-30);Serial.println(activeSensor->getGuidePoint());break;
+    case(bRight) : activeSensor->setGuidePoint(activeSensor->getGuidePoint()+30);Serial.println(activeSensor->getGuidePoint());break;
   }
 
 }
@@ -114,7 +115,7 @@ void TaskCtrlcode( void * pvParameters ){
   eGuidingMode currentGuidingMode, prevGuidingMode;
   eOperatingMode currentOperatingMode, prevOperatingMode;
   while(1){
-    Serial.println(activeSensor->getData());
+//    Serial.println(activeSensor->getGuidePoint());
     currentGuidingMode = controller.getGuidingMode();
     currentOperatingMode = controller.getOperatingMode();
     if(prevGuidingMode != currentGuidingMode){
@@ -133,7 +134,7 @@ void TaskCtrlcode( void * pvParameters ){
 void TaskLCDcode( void * pvParameters ){
   Serial.print("TaskLCD running on core ");
   Serial.println(xPortGetCoreID());
-  uint16_t sensorDispData = 0;
+  uint16_t sensorDispData = 0, currentDispData = 0;
   while(1){
     static uint32_t scanTime = millis();
     uint16_t t_x = 9999, t_y = 9999; // To store the touch coordinates
@@ -157,18 +158,21 @@ void TaskLCDcode( void * pvParameters ){
       }
     }
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_BLACK);
-    currentBar.fillRect(0,150-(dispData/2),10,dispData/2,TFT_BLACK);
-    if(dispData++ >299) dispData = 0;
+    currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_BLACK);
+//    if(current.getData()++ >299) current.getData() = 0;
+
     sensorDispData = activeSensor->getData();
-    if(!dispData)Serial.println((sensorDispData*300)/4095);
+    currentDispData = (current.getData()*150)/4095;
+//    if(!current.getData())Serial.println((sensorDispData*300)/4095);
+
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_RED);
-    currentBar.fillRect(0,150-(dispData/2),10,dispData/2,TFT_RED);
-    sensorBar.fillRect(sensorDispData,0,3,10,TFT_BLUE);
+    currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_RED);
+    sensorBar.fillRect((activeSensor->getGuidePoint()*300)/4095,0,3,10,TFT_BLUE);
     sensorBar.pushSprite(10, 170);
     currentBar.pushSprite(10,10);
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
-    tft.drawNumber(dispData/2,5,155);
+    tft.drawNumber((current.getData()*150)/4095,5,155);
   }
 }
 void touch_calibrate(){
