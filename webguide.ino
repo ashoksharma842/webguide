@@ -45,17 +45,56 @@ uint8_t b = 2;//for counting buttons
 int prevDispData = 1, dispData = 0, countForDataDisp = 0;
 void btn_pressAction(void){
   if (btn[b]->justPressed()) {
-    btn[b]->drawSmoothButton(true);
+    btn[b]->drawSmoothButton(false);
   }
   switch(b){
-    case(bAuto) : controller.setOperatingMode(AUTO);controller.getGuidingMode() == S1 ? activeSensor = &sensor1 : activeSensor = &sensor2;break;
-    case(bManual) : controller.setOperatingMode(MANUAL);break;
-    case(bCenter) : controller.setOperatingMode(SC);activeSensor = &limitSwitch;break;
+    case(bAuto) : 
+    {
+      controller.setOperatingMode(AUTO);
+      controller.getGuidingMode() == S1 ? activeSensor = &sensor1 : activeSensor = &sensor2;
+      break;
+    }
+    case(bManual) : 
+    {
+      controller.setOperatingMode(MANUAL);break;
+    }
+    case(bCenter) : 
+    {
+      controller.setOperatingMode(SC);
+      activeSensor = &limitSwitch;
+      break;
+    }
 //    case(bSetup) : controller.setOperatingMode(MANUAL);break;
-    case(bS1) : controller.setGuidingMode(S1);if(controller.getOperatingMode()==AUTO)activeSensor = &sensor1;break;
-    case(bS2) : controller.setGuidingMode(S2);if(controller.getOperatingMode()==AUTO)activeSensor = &sensor2;break;
-    case(bLeft) : activeSensor->setGuidePoint(activeSensor->getGuidePoint()-30);Serial.println(activeSensor->getGuidePoint());break;
-    case(bRight) : activeSensor->setGuidePoint(activeSensor->getGuidePoint()+30);Serial.println(activeSensor->getGuidePoint());break;
+    case(bS1) : 
+    {
+      controller.setGuidingMode(S1);
+      if(controller.getOperatingMode()==AUTO)
+      {
+        activeSensor = &sensor1;
+      }
+      break;
+    }
+    case(bS2) : 
+    {
+      controller.setGuidingMode(S2);
+      if(controller.getOperatingMode()==AUTO)
+      {
+        activeSensor = &sensor2;
+      }
+      break;
+    }
+    case(bLeft) : 
+    {
+      activeSensor->setGuidePoint(activeSensor->getGuidePoint()-30);
+      Serial.println(activeSensor->getGuidePoint());
+      break;
+    }
+    case(bRight) : 
+    {
+      activeSensor->setGuidePoint(activeSensor->getGuidePoint()+30);
+      Serial.println(activeSensor->getGuidePoint());
+      break;
+    }
   }
 
 }
@@ -63,6 +102,39 @@ void btn_releaseAction(void){
   static uint32_t waitTime = 1000;
   if (btn[b]->justReleased()) {
     btn[b]->drawSmoothButton(false);
+    switch(b){
+      case(bAuto) : 
+      {
+        btn[bManual]->drawSmoothButton(true);
+        btn[bCenter]->drawSmoothButton(true);
+        break;
+      }
+      case(bManual) : 
+      {
+        btn[bAuto]->drawSmoothButton(true);
+        btn[bCenter]->drawSmoothButton(true);
+        break;
+      }
+      case(bCenter) : 
+      {
+        btn[bAuto]->drawSmoothButton(true);
+        btn[bManual]->drawSmoothButton(true);
+        break;
+      }
+      case(bS1) : 
+      {
+        btn[bS2]->drawSmoothButton(true);
+        break;
+      }
+      case(bS2) : 
+      {
+        btn[bS1]->drawSmoothButton(true);
+        break;
+      }
+    }
+    btn[bLeft]->drawSmoothButton(true);
+    btn[bRight]->drawSmoothButton(true);
+
     btn[b]->setReleaseTime(millis());
     waitTime = 10000;
   }
@@ -88,8 +160,11 @@ void initButtons(){
   for(int i = 0; i < 8; i++){
     btn[i]->setPressAction(btn_pressAction);
     btn[i]->setReleaseAction(btn_releaseAction);
-    btn[i]->drawSmoothButton(false, 3, TFT_BLACK);
+    btn[i]->drawSmoothButton(true, 3, TFT_BLACK);
   }
+  btn[bManual]->drawSmoothButton(false);
+  btn[bS1]->drawSmoothButton(false);
+
 }
 void setup(){
   Serial.begin(115200);
