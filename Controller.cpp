@@ -4,7 +4,7 @@
 ** Function name:           getOperatingMode
 ** Description:             Get operating mode of the controller
 ***************************************************************************************/
-OperatingMode Controller::getOperatingMode()
+eOperatingMode Controller::getOperatingMode()
 {
 	return m_operatingMode;
 }
@@ -13,7 +13,7 @@ OperatingMode Controller::getOperatingMode()
 ** Function name:           getGuidingMode
 ** Description:             Get guiding mode of the controller
 ***************************************************************************************/
-GuidingMode Controller::getGuidingMode()
+eGuidingMode Controller::getGuidingMode()
 {
 	return m_guidingMode;
 }
@@ -22,7 +22,7 @@ GuidingMode Controller::getGuidingMode()
 ** Function name:           setOperatingMode
 ** Description:             Set operating mode of the controller
 ***************************************************************************************/
-void Controller::setOperatingMode(OperatingMode oMode)
+void Controller::setOperatingMode(eOperatingMode oMode)
 {
 	m_operatingMode = oMode;
 }
@@ -31,7 +31,7 @@ void Controller::setOperatingMode(OperatingMode oMode)
 ** Function name:           setGuidingMode
 ** Description:             Set guiding mode of the controller
 ***************************************************************************************/
-void Controller::setGuidingMode(GuidingMode gMode)
+void Controller::setGuidingMode(eGuidingMode gMode)
 {
 	m_guidingMode = gMode;
 }
@@ -40,7 +40,7 @@ void Controller::setGuidingMode(GuidingMode gMode)
 ** Function name:           Controller
 ** Description:             Constructor , default : manual mode and sensor1
 ***************************************************************************************/
-Controller :: Controller(OperatingMode oMode, GuidingMode gMode)
+Controller :: Controller(eOperatingMode oMode, eGuidingMode gMode)
 {
 	m_guidingMode = gMode;
 	m_operatingMode = oMode;

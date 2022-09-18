@@ -1,372 +1,242 @@
-/**
-* Module : webGuideController.ino
-* Project : Web Guide Controller
-* Originated : 2021.11.12
-*
-* Overview : uses esp32 and L298N for web controlling
-*
-*/
+/*
+ * Web guide controller
+ */
 
-#include "controller.h"
-#include "lcd.h"
-#include "FS.h"
-#include <SPI.h>
+#include <FS.h>
+#include "Free_Fonts.h" // Include the header file attached to this sketch
 #include <TFT_eSPI.h>
+#include <TFT_eWidget.h>
+#include "Controller.h"
+#include "Sensor.h"
+#include "Actuator.h"
+
 TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite sensorBar = TFT_eSprite(&tft);
+TFT_eSprite currentBar = TFT_eSprite(&tft);
+Controller controller = Controller();
+Sensor sensor = Sensor();
+int potPin = 34;
+int potValue =0;
 
-#define NUM_KEYS 8
+enum {bLeft, bAuto, bManual, bCenter, bSetup, bRight, bS1, bS2};
+#define CALIBRATION_FILE "/TouchCalData1"
+#define REPEAT_CAL false
+#define TEXT_SIZE 3
 
-TFT_eSPI_Button key[NUM_KEYS];
+TaskHandle_t TaskLCD;
+TaskHandle_t TaskCtrl;
+ButtonWidget btnL = ButtonWidget(&tft);//LEFT
+ButtonWidget btnA = ButtonWidget(&tft);//AUTO
+ButtonWidget btnM = ButtonWidget(&tft);//MANUAL
+ButtonWidget btnC = ButtonWidget(&tft);//CENTER
+ButtonWidget btnS = ButtonWidget(&tft);//SETTING
+ButtonWidget btnR = ButtonWidget(&tft);//RIGHT
+ButtonWidget btnS1 = ButtonWidget(&tft);//SENSOR1
+ButtonWidget btnS2 = ButtonWidget(&tft);//SENSOR2
 
-TaskHandle_t Control;
-TaskHandle_t Display;
+#define BUTTON_W 50
+#define BUTTON_H 50
 
-const int AUTObuttonPin = 0;
-const int MANUALbuttonPin = 16;
-const int SCbuttonPin = 17;
-const int Sensor1buttonPin = 12;
-const int Sensor2buttonPin = 22;
-const int feedbackTypePin = 13;
+ButtonWidget* btn[] = {&btnL, &btnA, &btnM, &btnC, &btnS, &btnR, &btnS1, &btnS2};
+uint8_t buttonCount = sizeof(btn) / sizeof(btn[0]);
+uint8_t b = 2;//for counting buttons
+int prevDispData = 1, dispData = 0, countForDataDisp = 0;
+void btn_pressAction(void){
+  if (btn[b]->justPressed()) {
+    btn[b]->drawSmoothButton(true);
+  }
+  switch(b){
+    case(bAuto) : controller.setOperatingMode(AUTO);break;
+    case(bManual) : controller.setOperatingMode(MANUAL);break;
+    case(bCenter) : controller.setOperatingMode(SC);break;
+//    case(bSetup) : controller.setOperatingMode(MANUAL);break;
+    case(bS1) : controller.setGuidingMode(S1);break;
+    case(bS2) : controller.setGuidingMode(S2);break;
+    case(bLeft) : sensor.setGuidePoint(sensor.getGuidePoint()-3);break;
+    case(bRight) : sensor.setGuidePoint(sensor.getGuidePoint()+3);break;
+  }
 
-const int sensor1Pin = 32;
-const int sensor2Pin = 33;
-const int feedbackPin = 34;
-const int namurPin = 35;
-const int currentSensePin = 25;
+}
+void btn_releaseAction(void){
+  static uint32_t waitTime = 1000;
+  if (btn[b]->justReleased()) {
+    btn[b]->drawSmoothButton(false);
+    btn[b]->setReleaseTime(millis());
+    waitTime = 10000;
+  }
+  else {
+    if (millis() - btn[b]->getReleaseTime() >= waitTime) {
+      waitTime = 1000;
+      btn[b]->setReleaseTime(millis());
+    }
+  }
+}
+void initButtons(){
+  uint16_t x = 10;
+  uint16_t y = 190;
+  btn[0]->initButtonUL(x, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, "<" , TEXT_SIZE);
+  btn[1]->initButtonUL(x+50, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "A" , TEXT_SIZE);
+  btn[2]->initButtonUL(x+100, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "M" , TEXT_SIZE);
+  btn[3]->initButtonUL(x+150, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "C" , TEXT_SIZE);
+  btn[4]->initButtonUL(x+200, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "S" , TEXT_SIZE);
+  btn[5]->initButtonUL(x+250, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, ">" , TEXT_SIZE);
+  btn[6]->initButtonUL(x+40, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S1" , TEXT_SIZE);
+  btn[7]->initButtonUL(x+210, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S2" , TEXT_SIZE);
 
-const int motor1Pin1 = 27; 
-const int motor1Pin2 = 26; 
-const int enable1Pin = 14;
-
-volatile uint8_t operatingMode = MANUAL;
-volatile uint8_t guidingMode = SENSOR1;
-volatile uint8_t feedBackType = NAMUR;
-volatile float gain = 1.0, prevGain = 0.0;
-
-// Setting PWM properties
-const int freq = 20000;
-const int pwmChannel = 0;
-const int resolution = 8;
-
-//#define ADC_CHANNELS  5
-int adcChannelNumbers[ADC_CHANNELS] = {currentSensePin, sensor1Pin, sensor2Pin, namurPin, feedbackPin};
-volatile int adcData[ADC_CHANNELS] = {00, 00, 00, 00, 00};
-int refData[ADC_CHANNELS] = {SENSOR_MIDVAL, SENSOR_MIDVAL, SENSOR_MIDVAL, SENSOR_MIDVAL, SENSOR_MIDVAL};
-
-volatile int* edgeData;
-volatile int* feedbackData;
-volatile int* refEdgeData;
-volatile int* refFeedbackData;
-volatile int** sensorData;
-volatile int** referenceData;
-
-int prevEdgeData, prevFeedbackData, prevCurrentData;
-
-int requiredCorrection = 0;
-int actuatorStatus = STOP;
-
-int32_t height, width;
-
-void setup() {
-  Serial.begin(115200); 
-  tft.init();
-  // Set the rotation before we calibrate
+  for(int i = 0; i < 8; i++){
+    btn[i]->setPressAction(btn_pressAction);
+    btn[i]->setReleaseAction(btn_releaseAction);
+    btn[i]->drawSmoothButton(false, 3, TFT_BLACK);
+  }
+}
+void setup(){
+  Serial.begin(115200);
+  tft.begin();
   tft.setRotation(1);
-  // call screen calibration
-  touch_calibrate();
-  // Clear screen
   tft.fillScreen(TFT_BLACK);
+  // Calibrate the touch screen and retrieve the scaling factors
+  touch_calibrate();
+  initButtons();
+  tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
+  tft.setTextSize(7);
+  tft.drawNumber(60,110,80);
+  sensorBar.createSprite(300, 10);
+  currentBar.createSprite(10,150);
+    potValue = analogRead(potPin);
+    Serial.println(potValue);
 
-  tft.setFreeFont(&FreeMono9pt7b);
-  height = tft.getViewportHeight();
-  width = tft.getViewportWidth();
-  drawButtons(key);
-  tft.fillRect(width_per100(4), height_per75(5), width_per100(4), height_per75(50), TFT_RED);//left
-  tft.fillRect(width_per100(94), height_per75(5), width_per100(4), height_per75(50), TFT_RED);//right
-//  tft.fillRect(width_per100(21), height_per75(36), width_per100(60), height_per75(2), TFT_RED);//center
-  tft.fillRect(width_per100(26), height_per75(61), width_per100(50), height_per75(4), TFT_RED);//bottom
-  displaySensor(SENSOR1, TFT_CYAN);
-  displaySensor(SENSOR2, TFT_SILVER);
-  
-  // Setting button properties
-  pinMode(AUTObuttonPin, INPUT_PULLUP);
-  pinMode(MANUALbuttonPin, INPUT_PULLUP);
-  pinMode(SCbuttonPin, INPUT_PULLUP);
-  pinMode(Sensor1buttonPin, INPUT_PULLUP);
-  pinMode(Sensor2buttonPin, INPUT_PULLUP);
-  pinMode(feedbackTypePin, INPUT_PULLUP);
-
-  DisplayInfo();
-  //set default guiding mode and operating mode values
-  sensorData = &edgeData;
-  referenceData = &refEdgeData;
-  edgeData = &adcData[1];//sensor1
-  refEdgeData = &refData[1];//sensor1
-  feedbackData = &adcData[4];//feedback
-  refFeedbackData = &refData[4];//feedback
-  // sets the pins as outputs:
-  pinMode(motor1Pin1, OUTPUT);
-  pinMode(motor1Pin2, OUTPUT);
-  pinMode(enable1Pin, OUTPUT);
-  // configure LED PWM functionalitites
-  ledcSetup(pwmChannel, freq, resolution);
-  // attach the channel to the GPIO to be controlled
-  ledcAttachPin(enable1Pin, pwmChannel);
-
-  tft.setCursor(125, 235);
-  tft.setTextColor(TFT_WHITE, TFT_RED);
-  tft.println("NO ERROR");
-  
-  //create a task that will be executed in the ControlTask() function, with priority 1 and executed on core 0
-  xTaskCreatePinnedToCore(ControlTask, "Control", 10000, NULL, 1, &Control, 0);
+  xTaskCreatePinnedToCore(TaskLCDcode, "TaskLCD", 10000, NULL, 1, &TaskLCD, 0);
   delay(500);
-
-  //create a task that will be executed in the DisplayTask() function, with priority 1 and executed on core 1
-  xTaskCreatePinnedToCore(DisplayTask, "Display", 10000, NULL, 1, &Display, 1);
+  xTaskCreatePinnedToCore(TaskCtrlcode, "TaskCtrl", 10000, NULL, 1, &TaskCtrl, 1);
   delay(500);
 }
-
-//ControlTask: move actuator as per adc
-void ControlTask( void * pvParameters ){
-  Serial.print("Control running on core ");
+void TaskCtrlcode( void * pvParameters ){
+  Serial.print("TaskCtrl running on core ");
   Serial.println(xPortGetCoreID());
-  static uint8_t prevOperatingMode = SC;
-  for(;;){
-    read_adc_data(adcChannelNumbers, adcData);
-//    Serial.println(adcData[0]);
-    if(operatingMode != MANUAL){
-      if(**sensorData != **referenceData){
-        requiredCorrection = CalculateCorrection();
-        actuatorStatus = ApplyCorrection(requiredCorrection);
+  eGuidingMode currentGuidingMode, prevGuidingMode;
+  eOperatingMode currentOperatingMode, prevOperatingMode;
+  while(1){
+//    potValue = analogRead(potPin);
+//    Serial.println(potValue);
+    currentGuidingMode = controller.getGuidingMode();
+    currentOperatingMode = controller.getOperatingMode();
+    if(prevGuidingMode != currentGuidingMode){
+      Serial.print("Guiding mode:");
+      Serial.println(currentGuidingMode);
+      prevGuidingMode = currentGuidingMode;
+    }
+    if(prevOperatingMode != currentOperatingMode){
+      Serial.print("Operting mode:");
+      Serial.println(controller.getOperatingMode());
+      prevOperatingMode = currentOperatingMode;
+    }
+    delay(500);
+  }
+}
+void TaskLCDcode( void * pvParameters ){
+  Serial.print("TaskLCD running on core ");
+  Serial.println(xPortGetCoreID());
+  while(1){
+    static uint32_t scanTime = millis();
+    uint16_t t_x = 9999, t_y = 9999; // To store the touch coordinates
+
+    // Scan keys every 50ms at most
+    if (millis() - scanTime >= 50) {
+      countForDataDisp++;
+      // Pressed will be set true if there is a valid touch on the screen
+      bool pressed = tft.getTouch(&t_x, &t_y);
+      scanTime = millis();
+      for (b = 0; b < buttonCount; b++) {
+        if (pressed) {
+          if (btn[b]->contains(t_x, t_y)) {
+            btn[b]->press(true);
+            btn[b]->pressAction();
+          }
+        }
+        else {
+          btn[b]->press(false);
+          btn[b]->releaseAction();
+        }
       }
-    } else if ((actuatorStatus != STOP)&&(prevOperatingMode != MANUAL)){//in manual mode
-        actuatorStatus = ApplyCorrection(0);
     }
-    if(prevOperatingMode != operatingMode){
-        prevOperatingMode = operatingMode;
-    }
-    delay(10);
+     sensorBar.fillRect(0,0,(potValue*300)/4095,10,TFT_BLACK);
+     currentBar.fillRect(0,150-(dispData/2),10,dispData/2,TFT_BLACK);
+     if(dispData++ >299) dispData = 0;
+     potValue = analogRead(potPin);
+     if(!dispData)Serial.println((potValue*300)/4095);
+     sensorBar.fillRect(0,0,(potValue*300)/4095,10,TFT_RED);
+     currentBar.fillRect(0,150-(dispData/2),10,dispData/2,TFT_RED);
+     sensorBar.fillRect(sensor.getGuidePoint(),0,3,10,TFT_BLUE);
+     sensorBar.pushSprite(10, 170);
+     currentBar.pushSprite(10,10);
+     tft.setTextSize(2);
+     tft.drawNumber(dispData/2,5,155);
+
   }
 }
+void touch_calibrate(){
+  uint16_t calData[5];
+  uint8_t calDataOK = 0;
 
-void updateOperatingMode(volatile uint8_t operatingModeArg) {
-  switch (operatingModeArg){
-    case AUTO_BUTTON :
-    key[AUTO_BUTTON].setFillcolor(TFT_YELLOW);
-    key[AUTO_BUTTON].drawButton(false, "A");
-    key[MANUAL_BUTTON].setFillcolor(TFT_CYAN);
-    key[MANUAL_BUTTON].drawButton(false, "M");
-    key[SC_BUTTON].setFillcolor(TFT_CYAN);
-    key[SC_BUTTON].drawButton(false, "C");
-    if(operatingMode != AUTO){
-      operatingMode = AUTO;
-      sensorData = &edgeData;
-      referenceData = &refEdgeData;
-      Serial.println("<AUTO>");
-    }
-  break;
-    case MANUAL_BUTTON :
-    key[AUTO_BUTTON].setFillcolor(TFT_CYAN);
-    key[AUTO_BUTTON].drawButton(false, "A");
-    key[MANUAL_BUTTON].setFillcolor(TFT_YELLOW);
-    key[MANUAL_BUTTON].drawButton(false, "M");
-    key[SC_BUTTON].setFillcolor(TFT_CYAN);
-    key[SC_BUTTON].drawButton(false, "C");
-    if(operatingMode != MANUAL){
-      operatingMode = MANUAL;
-      Serial.println("<MANUAL>");
-    }
-  break;
-    case SC_BUTTON :
-    key[AUTO_BUTTON].setFillcolor(TFT_CYAN);
-    key[AUTO_BUTTON].drawButton(false, "A");
-    key[MANUAL_BUTTON].setFillcolor(TFT_CYAN);
-    key[MANUAL_BUTTON].drawButton(false, "M");
-    key[SC_BUTTON].setFillcolor(TFT_YELLOW);
-    key[SC_BUTTON].drawButton(false, "C");
-    if(operatingMode != SC){
-      operatingMode = SC;
-      sensorData = &feedbackData;
-      referenceData = &refFeedbackData;
-      Serial.println("<SC>");
-    }
-  break;
+  // check file system exists
+  if (!LittleFS.begin()) {
+    Serial.println("Formating file system");
+    LittleFS.format();
+    LittleFS.begin();
   }
-}
-//DisplayTask: display data and get input
-void DisplayTask( void * pvParameters ){
-  Serial.print("Display running on core ");
-  Serial.println(xPortGetCoreID());
-  int prevRequiredCorrection = 88;
-  int i = 0;
-  for(;;){
-    if(!digitalRead(AUTObuttonPin)){
-      Serial.println("AUTO BUTTON PRESSED");
-      updateOperatingMode(AUTO_BUTTON);
-    }
-    if(!digitalRead(MANUALbuttonPin)){
-      Serial.println("MANUAL BUTTON PRESSED");
-      updateOperatingMode(MANUAL_BUTTON);
-    }
-    if(!digitalRead(SCbuttonPin)){
-      Serial.println("SC BUTTON PRESSED");
-      updateOperatingMode(SC_BUTTON);
-    }
-//-----------read LCD---------------
-  uint16_t t_x = 0, t_y = 0; // To store the touch coordinates
 
-  // Get current touch state and coordinates
-  bool pressed = tft.getTouch(&t_x, &t_y);
-
-  // Adjust press state of each key appropriately
-  for (uint8_t b = 0; b < NUM_KEYS; b++) {
-    if (pressed && key[b].contains(t_x, t_y)) 
-      key[b].press(true);  // tell the button it is pressed
+  // check if calibration file exists and size is correct
+  if (LittleFS.exists(CALIBRATION_FILE)) {
+    if (REPEAT_CAL)
+    {
+      // Delete if we want to re-calibrate
+      LittleFS.remove(CALIBRATION_FILE);
+    }
     else
-      key[b].press(false);  // tell the button it is NOT pressed
+    {
+      File f = LittleFS.open(CALIBRATION_FILE, "r");
+      if (f) {
+        if (f.readBytes((char *)calData, 14) == 14)
+          calDataOK = 1;
+        f.close();
+      }
+    }
   }
 
-  // Check if any key has changed state
-  for (uint8_t b = 0; b < NUM_KEYS; b++) {
-    // If button was just pressed, redraw inverted button
-    if (key[b].justPressed()) {
-      // Serial.println("Button " + (String)b + " pressed");
-      // key[b].drawButton(true, (String)(b));
-      switch(b){
-        case LEFT_BUTTON :
-        key[LEFT_BUTTON].setFillcolor(TFT_YELLOW);
-        key[LEFT_BUTTON].drawButton(false, "<");
-        if(operatingMode == MANUAL){
-          ApplyCorrection(-80);
-        }
-      break;
-        case RIGHT_BUTTON :
-        key[RIGHT_BUTTON].setFillcolor(TFT_YELLOW);
-        key[RIGHT_BUTTON].drawButton(false, ">");
-        if(operatingMode == MANUAL){
-          ApplyCorrection(80);
-        }
-      break;
-      }
-    }
-    // Check if any key has been continously pressed
-    if (key[b].isPressed()) {
-      // Serial.println("Button " + (String)b + " pressed");
-      // key[b].drawButton(true, (String)(b));
-      switch(b){
-        case LEFT_BUTTON :
-        key[LEFT_BUTTON].setFillcolor(TFT_YELLOW);
-        key[LEFT_BUTTON].drawButton(false, "<");
-        if (operatingMode == AUTO){
-          if(gain > 0.5){
-            gain = gain - 0.10;
-          }
-        }
-      break;
-        case RIGHT_BUTTON :
-        key[RIGHT_BUTTON].setFillcolor(TFT_YELLOW);
-        key[RIGHT_BUTTON].drawButton(false, ">");
-        if (operatingMode == AUTO){
-          if(gain < 2.50){
-            gain = gain + .10;
-          }
-        }
-      break;
-      }
+  if (calDataOK && !REPEAT_CAL) {
+    // calibration data valid
+    tft.setTouch(calData);
+  } else {
+    // data not valid so recalibrate
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(20, 0);
+    tft.setTextFont(2);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+
+    tft.println("Touch corners as indicated");
+
+    tft.setTextFont(1);
+    tft.println();
+
+    if (REPEAT_CAL) {
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.println("Set REPEAT_CAL to false to stop this running again!");
     }
 
-    // If button was just released, redraw normal color button
-    if (key[b].justReleased()) {
-      // Serial.println("Button " + (String)b + " released");
-      // key[b].drawButton(false, (String)(b));
-      switch(b){
-        case SENSOR1_BUTTON :
-        displaySensor(SENSOR1, TFT_CYAN);
-        displaySensor(SENSOR2, TFT_SILVER);
-        if((guidingMode != GM_SENSOR1) && (operatingMode != SC)){
-          guidingMode = GM_SENSOR1;
-          edgeData = &adcData[1];
-          refEdgeData =&refData[1];
-          Serial.print("guidingMode : ");Serial.println(guidingMode);
-        }
-      break;
-        case SENSOR2_BUTTON :
-        displaySensor(SENSOR2, TFT_CYAN);
-        displaySensor(SENSOR1, TFT_SILVER);
-        if((guidingMode != GM_SENSOR2) && (operatingMode != SC)){
-          guidingMode = GM_SENSOR2;
-          edgeData = &adcData[2];
-          refEdgeData =&refData[2];
-          Serial.print("guidingMode : ");Serial.println(guidingMode);
-        }
-      break;
-        case AUTO_BUTTON :
-        case MANUAL_BUTTON :
-        case SC_BUTTON :
-        updateOperatingMode(b);
-      break;
-        case FB_BUTTON :
-        if((guidingMode != GM_NAMUR) && (operatingMode == SC)){
-          guidingMode = GM_NAMUR;
-          edgeData = &adcData[3];
-          refEdgeData =&refData[3];
-          Serial.println("GM_NAMUR");
-          key[FB_BUTTON].setFillcolor(TFT_GREENYELLOW);
-          key[FB_BUTTON].drawButton(false, "NMR");
-        } else if ((guidingMode != GM_ACT_FB) && (operatingMode == SC)){
-          guidingMode = GM_ACT_FB;
-          edgeData = &adcData[4];
-          refEdgeData =&refData[4];
-          Serial.println("GM_ACT_FB");
-          key[FB_BUTTON].setFillcolor(TFT_GREEN);
-          key[FB_BUTTON].drawButton(false, "FB");
-        }
-      break;
-        case LEFT_BUTTON :
-        key[LEFT_BUTTON].setFillcolor(TFT_CYAN);
-        key[LEFT_BUTTON].drawButton(false, "<");
-        if(operatingMode == MANUAL){
-          ApplyCorrection(0);
-        }
-      break;
-        case RIGHT_BUTTON :
-        key[RIGHT_BUTTON].setFillcolor(TFT_CYAN);
-        key[RIGHT_BUTTON].drawButton(false, ">");
-        if(operatingMode == MANUAL){
-          ApplyCorrection(0);
-        }
-      break;
-      }
+    tft.calibrateTouch(calData, TFT_MAGENTA, TFT_BLACK, 15);
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.println("Calibration complete!");
+
+    // store data
+    File f = LittleFS.open(CALIBRATION_FILE, "w");
+    if (f) {
+      f.write((const unsigned char *)calData, 14);
+      f.close();
     }
-  }
-  static int dispEdgeData;
-  dispEdgeData = getDispEdgeData(edgeData);
-  if(prevEdgeData != dispEdgeData){
-    displaySensorData(guidingMode, dispEdgeData);
-    prevEdgeData = dispEdgeData;
-  }
-  static int dispFeedbackData;
-  dispFeedbackData = getDispFeedbackData(feedbackData);
-  if(prevFeedbackData != dispFeedbackData){
-    displayFeedbackData(feedBackType, dispFeedbackData);
-    prevFeedbackData = dispFeedbackData;
-  }
-  if(prevCurrentData != adcData[0]){
-    displayCurrentData(adcData[0]);
-    prevCurrentData = adcData[0];
-  }
-  if(prevGain != gain){
-    displayGain(gain);
-    prevGain = gain;
-  }
-  if((operatingMode == AUTO) && (prevRequiredCorrection != requiredCorrection)){
-//    Serial.print(**sensorData);Serial.print(" -> ");Serial.println(requiredCorrection);
-    prevRequiredCorrection = requiredCorrection;
-  }
-  delay(10);
   }
 }
-
-void loop() {
-
+void loop(){
+//all code is run in tasks
 }

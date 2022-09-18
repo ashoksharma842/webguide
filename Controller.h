@@ -1,19 +1,19 @@
 #include <iostream>
 
-enum OperatingMode{MANUAL, AUTO, SC};
-enum GuidingMode{S1, S2};
+enum eOperatingMode{MANUAL, AUTO, SC};
+enum eGuidingMode{S1, S2};
 
 class Controller 
 {
 	public:
-		Controller(OperatingMode oMode = MANUAL, GuidingMode gMode = S1);
-		OperatingMode getOperatingMode();
-		GuidingMode getGuidingMode();
-		void setOperatingMode(OperatingMode oMode);
-		void setGuidingMode(GuidingMode gMode);
+		Controller(eOperatingMode oMode = MANUAL, eGuidingMode gMode = S1);
+		eOperatingMode getOperatingMode();
+		eGuidingMode getGuidingMode();
+		void setOperatingMode(eOperatingMode oMode);
+		void setGuidingMode(eGuidingMode gMode);
 		void dispCtrlStatus();
 		
 	private:
-		OperatingMode m_operatingMode;
-		GuidingMode m_guidingMode;
+		eOperatingMode m_operatingMode;
+		eGuidingMode m_guidingMode;
 };
