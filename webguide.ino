@@ -19,6 +19,7 @@ Sensor sensor2 = Sensor(50,33); // 50 gp, adc pin 33
 Sensor current = Sensor(50,25); // current sensor.
 Sensor limitSwitch = Sensor(50,35); // for servo centre NAMUR sensor
 Sensor *activeSensor = &sensor1; // used for guiding mode
+Actuator actuator = Actuator();
 
 enum {bLeft, bAuto, bManual, bCenter, bSetup, bRight, bS1, bS2};
 #define CALIBRATION_FILE "/TouchCalData1"

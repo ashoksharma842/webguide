@@ -1,20 +1,23 @@
-enum direction{BACKWARD = -1, STOP = 0, FORWARD = 1};
+enum direction_t{BACKWARD = -1, STOP = 0, FORWARD = 1};
 
 class Actuator
 {
 	public :
-		Actuator(direction direction = STOP, int sd = 0, bool fb = false);
-		void setDirection(direction dir);
-		direction getDirection();
+		Actuator(int Apin = 26, int Bpin = 27, int pwmPin = 14, bool fb = false);
+		void setDirection(direction_t dir);
+		direction_t getDirection();
 		void setFbType(bool type);
 		int getFbData();
-		void setSpeed(unsigned int speed);
-		void move(int correction);
+		void actuatorSetSpeed(unsigned int spd);
+		void actuatorMove(int correction);
 		
 	private :
-		direction m_direction;
-		unsigned int m_speed;
+		direction_t m_direction;
+		unsigned int m_speed;//pwm
 		bool m_feedback;
 		int m_feedbackData;
 		int m_prevDir;
+    int m_Apin;
+    int m_Bpin;
+    int m_pwmPin;
 };

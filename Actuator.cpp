@@ -4,10 +4,11 @@
 ** Function name:           Actuator
 ** Description:             Constructor , we must stop actuator in begning
 ***************************************************************************************/
-Actuator::Actuator(direction direction, int speed, bool fb)	
+Actuator::Actuator(int A_pin, int B_pin, int pwm_pin, bool fb)	
 {
-	m_direction = direction;
-	m_speed = speed;
+  m_Apin = A_pin;
+  m_Bpin = B_pin;
+	m_pwmPin = pwm_pin;
 	m_feedback = fb;
 }
 
@@ -15,8 +16,18 @@ Actuator::Actuator(direction direction, int speed, bool fb)
 ** Function name:           setDirection
 ** Description:             set direction of actuator
 ***************************************************************************************/
-void Actuator::setDirection(direction dir)
+void Actuator::setDirection(direction_t dir)
 {
+  if(dir > 0){
+    m_Apin = 0;
+    m_Bpin = 1;
+  } else if(dir < 0){
+    m_Apin = 1;
+    m_Bpin = 0;
+  } else {
+    m_Apin = 0;
+    m_Bpin = 0;
+  }
 	m_direction = dir;
 }
 
@@ -24,16 +35,16 @@ void Actuator::setDirection(direction dir)
 ** Function name:           setSpeed
 ** Description:             set speed of actuator
 ***************************************************************************************/
-void Actuator::setSpeed(unsigned int speed)
+void Actuator::actuatorSetSpeed(unsigned int actuatorSpeed)
 {
-	m_speed = speed;
+	m_speed = actuatorSpeed;
 }
 
 /***************************************************************************************
 ** Function name:           getDirection
 ** Description:             get direction of actuator
 ***************************************************************************************/
-direction Actuator::getDirection()
+direction_t Actuator::getDirection()
 {
 	return m_direction;
 }
@@ -60,9 +71,9 @@ int Actuator::getFbData()
 ** Function name:           move
 ** Description:             move actuator
 ***************************************************************************************/
-void Actuator::move(int correction)
+void Actuator::actuatorMove(int correction)
 {
-    setSpeed((correction < 0)?(correction * (-1)):correction);
+    actuatorSetSpeed((correction < 0)?(correction * (-1)):correction);
     if(correction > 0){
         setDirection(FORWARD);
         std::cout<<"->"<<std::endl;
@@ -70,7 +81,7 @@ void Actuator::move(int correction)
         setDirection(BACKWARD);
         std::cout<<"<-"<<std::endl;
     } else {
-        setSpeed(0);
+        actuatorSetSpeed(0);
         setDirection(STOP);
         std::cout<<"||"<<std::endl;
     }
