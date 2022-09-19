@@ -13,6 +13,7 @@
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite sensorBar = TFT_eSprite(&tft);
 TFT_eSprite currentBar = TFT_eSprite(&tft);
+TFT_eSprite mainDisp = TFT_eSprite(&tft);
 Controller controller = Controller();
 Sensor sensor1 = Sensor(50,32); // 50 gp, adc pin 32
 Sensor sensor2 = Sensor(50,33); // 50 gp, adc pin 33
@@ -189,8 +190,8 @@ void initButtons(){
   btn[3]->initButtonUL(x+150, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "C" , TEXT_SIZE);
   btn[4]->initButtonUL(x+200, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "S" , TEXT_SIZE);
   btn[5]->initButtonUL(x+250, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, ">" , TEXT_SIZE);
-  btn[6]->initButtonUL(x+40, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S1" , TEXT_SIZE);
-  btn[7]->initButtonUL(x+210, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S2" , TEXT_SIZE);
+  btn[6]->initButtonUL(x+20, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S1" , TEXT_SIZE);
+  btn[7]->initButtonUL(x+230, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S2" , TEXT_SIZE);
 
   for(int i = 0; i < 8; i++){
     btn[i]->setPressAction(btn_pressAction);
@@ -209,11 +210,12 @@ void setup(){
   // Calibrate the touch screen and retrieve the scaling factors
   touch_calibrate();
   initButtons();
-  tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
-  tft.setTextSize(7);
-  tft.drawNumber(60,110,80);
   sensorBar.createSprite(300, 10);
   currentBar.createSprite(10,150);
+  mainDisp.createSprite(120,60);
+  mainDisp.setTextColor(TFT_ORANGE,TFT_BLACK,true);
+  mainDisp.setTextSize(5);
+  mainDisp.drawNumber(9999,0,0);
 
   xTaskCreatePinnedToCore(TaskLCDcode, "TaskLCD", 10000, NULL, 1, &TaskLCD, 0);
   delay(500);
@@ -280,6 +282,10 @@ void TaskLCDcode( void * pvParameters ){
     }
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_BLACK);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_BLACK);
+//    if(countForDataDisp++ > 100){
+//      mainDisp.setTextColor(TFT_BLACK,TFT_BLACK,true);
+//      mainDisp.drawNumber(sensorDispData,0,0);
+//    }
 
     sensorDispData = activeSensor->getData();
     currentDispData = (current.getData()*150)/4095;
@@ -289,6 +295,15 @@ void TaskLCDcode( void * pvParameters ){
     sensorBar.fillRect((activeSensor->getGuidePoint()*300)/4095,0,3,10,TFT_BLUE);
     sensorBar.pushSprite(10, 170);
     currentBar.pushSprite(10,10);
+    if(countForDataDisp++ > 100){
+      mainDisp.fillScreen(TFT_BLACK);
+      mainDisp.setTextDatum(MR_DATUM);
+      mainDisp.setTextColor(TFT_BLUE,TFT_BLACK,true);
+//      mainDisp.drawNumber(sensorDispData,0,30); //TODO: right allign
+      countForDataDisp = 0;
+    }
+
+    mainDisp.pushSprite(100,100);
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
     tft.drawNumber((current.getData()*150)/4095,5,155);
