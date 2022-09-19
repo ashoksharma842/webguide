@@ -10,6 +10,7 @@ class Actuator
 		int getFbData();
 		void actuatorSetSpeed(unsigned int spd);
 		void actuatorMove(int correction);
+    void actuatorInit();
 		
 	private :
 		direction_t m_direction;
@@ -20,4 +21,7 @@ class Actuator
     int m_Apin;
     int m_Bpin;
     int m_pwmPin;
+    int m_freq;
+    int m_pwmChannel;
+    int m_resolution;
 };

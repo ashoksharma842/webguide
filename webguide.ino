@@ -9,7 +9,7 @@
 #include "Controller.h"
 #include "Sensor.h"
 #include "Actuator.h"
-
+#include "calibration.h"
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite sensorBar = TFT_eSprite(&tft);
 TFT_eSprite currentBar = TFT_eSprite(&tft);
@@ -22,8 +22,6 @@ Sensor *activeSensor = &sensor1; // used for guiding mode
 Actuator actuator = Actuator();
 
 enum {bLeft, bAuto, bManual, bCenter, bSetup, bRight, bS1, bS2};
-#define CALIBRATION_FILE "/TouchCalData1"
-#define REPEAT_CAL false
 #define TEXT_SIZE 3
 
 TaskHandle_t TaskLCD;
@@ -192,7 +190,6 @@ void TaskCtrlcode( void * pvParameters ){
   eGuidingMode currentGuidingMode, prevGuidingMode;
   eOperatingMode currentOperatingMode, prevOperatingMode;
   while(1){
-//    Serial.println(activeSensor->getGuidePoint());
     currentGuidingMode = controller.getGuidingMode();
     currentOperatingMode = controller.getOperatingMode();
     if(prevGuidingMode != currentGuidingMode){
@@ -206,13 +203,16 @@ void TaskCtrlcode( void * pvParameters ){
       prevOperatingMode = currentOperatingMode;
     }
     if(currentOperatingMode){
-      int correction = activeSensor->getData() - activeSensor->getGuidePoint();
+      int sensorData = activeSensor->getData();
+      int guidePoint = activeSensor->getGuidePoint();
+      int gain = activeSensor->getGain();
+      int correction = 2 * gain * abs(sensorData - guidePoint);
       if(correction){
         Serial.print("correction = ");
         Serial.println(correction);
       }
     }
-    delay(500);
+    delay(1);
   }
 }
 void TaskLCDcode( void * pvParameters ){
@@ -255,69 +255,6 @@ void TaskLCDcode( void * pvParameters ){
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
     tft.drawNumber((current.getData()*150)/4095,5,155);
-  }
-}
-void touch_calibrate(){
-  uint16_t calData[5];
-  uint8_t calDataOK = 0;
-
-  // check file system exists
-  if (!LittleFS.begin()) {
-    Serial.println("Formating file system");
-    LittleFS.format();
-    LittleFS.begin();
-  }
-
-  // check if calibration file exists and size is correct
-  if (LittleFS.exists(CALIBRATION_FILE)) {
-    if (REPEAT_CAL)
-    {
-      // Delete if we want to re-calibrate
-      LittleFS.remove(CALIBRATION_FILE);
-    }
-    else
-    {
-      File f = LittleFS.open(CALIBRATION_FILE, "r");
-      if (f) {
-        if (f.readBytes((char *)calData, 14) == 14)
-          calDataOK = 1;
-        f.close();
-      }
-    }
-  }
-
-  if (calDataOK && !REPEAT_CAL) {
-    // calibration data valid
-    tft.setTouch(calData);
-  } else {
-    // data not valid so recalibrate
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(20, 0);
-    tft.setTextFont(2);
-    tft.setTextSize(1);
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-
-    tft.println("Touch corners as indicated");
-
-    tft.setTextFont(1);
-    tft.println();
-
-    if (REPEAT_CAL) {
-      tft.setTextColor(TFT_RED, TFT_BLACK);
-      tft.println("Set REPEAT_CAL to false to stop this running again!");
-    }
-
-    tft.calibrateTouch(calData, TFT_MAGENTA, TFT_BLACK, 15);
-
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
-    tft.println("Calibration complete!");
-
-    // store data
-    File f = LittleFS.open(CALIBRATION_FILE, "w");
-    if (f) {
-      f.write((const unsigned char *)calData, 14);
-      f.close();
-    }
   }
 }
 void loop(){

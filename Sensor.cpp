@@ -1,9 +1,10 @@
 #include "Sensor.h"
 #include <Arduino.h>
-Sensor::Sensor(int gp, int adcPin)
+Sensor::Sensor(int gp, int adcPin, int gain)
 {
     m_guidePoint = gp;
     m_adcPin = adcPin;
+    m_gain = gain;
 }
 /***************************************************************************************
 ** Function name:           setGuidePoint
@@ -11,7 +12,7 @@ Sensor::Sensor(int gp, int adcPin)
 ***************************************************************************************/
 void Sensor :: setGuidePoint(int gp)
 {
-	m_guidePoint = gp;
+  m_guidePoint = gp;
 }
 
 /***************************************************************************************
@@ -20,7 +21,24 @@ void Sensor :: setGuidePoint(int gp)
 ***************************************************************************************/
 int Sensor :: getGuidePoint()
 {
-	return m_guidePoint;
+  return m_guidePoint;
+}
+/***************************************************************************************
+** Function name:           setGain
+** Description:             Set gain of the sensor
+***************************************************************************************/
+void Sensor :: setGain(int gain)
+{
+  m_gain = gain;
+}
+
+/***************************************************************************************
+** Function name:           getGain
+** Description:             Get gain of the sensor
+***************************************************************************************/
+int Sensor :: getGain()
+{
+  return m_gain;
 }
 
 /***************************************************************************************
