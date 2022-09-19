@@ -11,7 +11,7 @@ Actuator::Actuator(int A_pin, int B_pin, int pwm_pin, bool fb)
 	m_pwmPin = pwm_pin;
 	m_feedback = fb;
 }
-void Actuator::actuatorInit()
+void Actuator::actuatorInit(void)
 {
   pinMode(m_Apin, OUTPUT);
   pinMode(m_Bpin, OUTPUT);

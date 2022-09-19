@@ -37,7 +37,8 @@ ButtonWidget btnS2 = ButtonWidget(&tft);//SENSOR2
 
 #define BUTTON_W 50
 #define BUTTON_H 50
-
+static uint32_t setupTime = millis();
+bool autoSetup = false;
 ButtonWidget* btn[] = {&btnL, &btnA, &btnM, &btnC, &btnS, &btnR, &btnS1, &btnS2};
 uint8_t buttonCount = sizeof(btn) / sizeof(btn[0]);
 uint8_t b = 2;//for counting buttons
@@ -55,7 +56,8 @@ void btn_pressAction(void){
     }
     case(bManual) : 
     {
-      controller.setOperatingMode(MANUAL);break;
+      controller.setOperatingMode(MANUAL);
+      break;
     }
     case(bCenter) : 
     {
@@ -63,7 +65,18 @@ void btn_pressAction(void){
       activeSensor = &limitSwitch;
       break;
     }
-//    case(bSetup) : controller.setOperatingMode(MANUAL);break;
+    case(bSetup) : 
+    {
+//      controller.setOperatingMode(MANUAL);
+      setupTime = millis();
+      if(autoSetup == false) {
+        autoSetup = true;
+        Serial.println("*");
+      } else {
+        autoSetup = false;
+      }
+      break;
+    }
     case(bS1) : 
     {
       controller.setGuidingMode(S1);
@@ -84,14 +97,32 @@ void btn_pressAction(void){
     }
     case(bLeft) : 
     {
-      activeSensor->setGuidePoint(activeSensor->getGuidePoint()-30);
-      Serial.println(activeSensor->getGuidePoint());
+      if(controller.getOperatingMode()){
+        if(!autoSetup){
+          activeSensor->setGuidePoint(activeSensor->getGuidePoint()-30);
+          Serial.print("GP: ");
+          Serial.println(activeSensor->getGuidePoint());
+        } else {
+          activeSensor->setGain(activeSensor->getGain()-1);
+          Serial.print("Gain: ");
+          Serial.println(activeSensor->getGain());
+        }
+      }
       break;
     }
     case(bRight) : 
     {
-      activeSensor->setGuidePoint(activeSensor->getGuidePoint()+30);
-      Serial.println(activeSensor->getGuidePoint());
+      if(controller.getOperatingMode()){
+        if(!autoSetup){
+          activeSensor->setGuidePoint(activeSensor->getGuidePoint()+30);
+          Serial.print("GP: ");
+          Serial.println(activeSensor->getGuidePoint());
+        } else {
+          activeSensor->setGain(activeSensor->getGain()+1);
+          Serial.print("Gain: ");
+          Serial.println(activeSensor->getGain());
+        }
+      }
       break;
     }
   }
@@ -118,6 +149,11 @@ void btn_releaseAction(void){
       {
         btn[bAuto]->drawSmoothButton(true);
         btn[bManual]->drawSmoothButton(true);
+        break;
+      }
+      case(bSetup) : 
+      {
+        btn[bSetup]->drawSmoothButton(false);
         break;
       }
       case(bS1) : 
@@ -163,10 +199,10 @@ void initButtons(){
   }
   btn[bManual]->drawSmoothButton(false);
   btn[bS1]->drawSmoothButton(false);
-
 }
 void setup(){
   Serial.begin(115200);
+  actuator.actuatorInit();
   tft.begin();
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
@@ -208,8 +244,9 @@ void TaskCtrlcode( void * pvParameters ){
       int gain = activeSensor->getGain();
       int correction = 2 * gain * abs(sensorData - guidePoint);
       if(correction){
-        Serial.print("correction = ");
-        Serial.println(correction);
+//        Serial.print("correction = ");
+//        Serial.println(correction);
+          actuator.actuatorMove(correction);
       }
     }
     delay(1);
@@ -255,6 +292,11 @@ void TaskLCDcode( void * pvParameters ){
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
     tft.drawNumber((current.getData()*150)/4095,5,155);
+    if((millis() - setupTime > 3000) && (autoSetup)){
+      btn[bSetup]->drawSmoothButton(true);
+      autoSetup = false;
+      Serial.println("!");      
+    }
   }
 }
 void loop(){
