@@ -13,6 +13,7 @@
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite sensorBar = TFT_eSprite(&tft);
 TFT_eSprite currentBar = TFT_eSprite(&tft);
+TFT_eSprite gainBar = TFT_eSprite(&tft);
 TFT_eSprite mainDisp = TFT_eSprite(&tft);
 Controller controller = Controller();
 Sensor sensor1 = Sensor(50,32); // 50 gp, adc pin 32
@@ -212,6 +213,7 @@ void setup(){
   initButtons();
   sensorBar.createSprite(300, 10);
   currentBar.createSprite(10,150);
+  gainBar.createSprite(10,150);
   mainDisp.createSprite(120,60);
   mainDisp.setTextColor(TFT_ORANGE,TFT_BLACK,true);
   mainDisp.setTextSize(5);
@@ -257,7 +259,7 @@ void TaskCtrlcode( void * pvParameters ){
 void TaskLCDcode( void * pvParameters ){
   Serial.print("TaskLCD running on core ");
   Serial.println(xPortGetCoreID());
-  uint16_t sensorDispData = 0, currentDispData = 0;
+  uint16_t sensorDispData = 0, currentDispData = 0, gainDispData = 0;
   while(1){
     static uint32_t scanTime = millis();
     uint16_t t_x = 9999, t_y = 9999; // To store the touch coordinates
@@ -282,6 +284,7 @@ void TaskLCDcode( void * pvParameters ){
     }
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_BLACK);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_BLACK);
+    gainBar.fillRect(0,150-(gainDispData),10,gainDispData,TFT_BLACK);
 //    if(countForDataDisp++ > 100){
 //      mainDisp.setTextColor(TFT_BLACK,TFT_BLACK,true);
 //      mainDisp.drawNumber(sensorDispData,0,0);
@@ -289,12 +292,14 @@ void TaskLCDcode( void * pvParameters ){
 
     sensorDispData = activeSensor->getData();
     currentDispData = (current.getData()*150)/4095;
-
+    gainDispData = activeSensor->getGain();
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_RED);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_RED);
+    gainBar.fillRect(0,150-(gainDispData),10,gainDispData,TFT_RED);
     sensorBar.fillRect((activeSensor->getGuidePoint()*300)/4095,0,3,10,TFT_BLUE);
     sensorBar.pushSprite(10, 170);
-    currentBar.pushSprite(10,10);
+    currentBar.pushSprite(10,0);
+    gainBar.pushSprite(300,0);
     if(countForDataDisp++ > 100){
       mainDisp.fillScreen(TFT_BLACK);
       mainDisp.setTextDatum(MR_DATUM);

@@ -1,7 +1,7 @@
 class Sensor
 {
 	public :
-	  Sensor(int gp = 21, int adcPin = 34, int gain = 1);
+	  Sensor(int gp = 2048, int adcPin = 34, int gain = 1);
 		void setGuidePoint(int gp);
 		int getGuidePoint();
 		int getData();
