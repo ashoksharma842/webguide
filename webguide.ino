@@ -16,8 +16,8 @@ TFT_eSprite currentBar = TFT_eSprite(&tft);
 TFT_eSprite gainBar = TFT_eSprite(&tft);
 TFT_eSprite mainDisp = TFT_eSprite(&tft);
 Controller controller = Controller();
-Sensor sensor1 = Sensor(50,32); // 50 gp, adc pin 32
-Sensor sensor2 = Sensor(50,33); // 50 gp, adc pin 33
+Sensor sensor1 = Sensor(2048,32); // 50 gp, adc pin 32
+Sensor sensor2 = Sensor(2048,33); // 50 gp, adc pin 33
 Sensor current = Sensor(50,25); // current sensor.
 Sensor limitSwitch = Sensor(50,35); // for servo centre NAMUR sensor
 Sensor *activeSensor = &sensor1; // used for guiding mode
@@ -185,6 +185,7 @@ void btn_releaseAction(void){
 void initButtons(){
   uint16_t x = 10;
   uint16_t y = 190;
+
   btn[0]->initButtonUL(x, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, "<" , TEXT_SIZE);
   btn[1]->initButtonUL(x+50, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "A" , TEXT_SIZE);
   btn[2]->initButtonUL(x+100, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "M" , TEXT_SIZE);
@@ -248,8 +249,6 @@ void TaskCtrlcode( void * pvParameters ){
       int gain = activeSensor->getGain();
       int correction = 2 * gain * abs(sensorData - guidePoint);
       if(correction){
-//        Serial.print("correction = ");
-//        Serial.println(correction);
           actuator.actuatorMove(correction);
       }
     }
@@ -285,10 +284,6 @@ void TaskLCDcode( void * pvParameters ){
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_BLACK);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_BLACK);
     gainBar.fillRect(0,150-(gainDispData),10,gainDispData,TFT_BLACK);
-//    if(countForDataDisp++ > 100){
-//      mainDisp.setTextColor(TFT_BLACK,TFT_BLACK,true);
-//      mainDisp.drawNumber(sensorDispData,0,0);
-//    }
 
     sensorDispData = activeSensor->getData();
     currentDispData = (current.getData()*150)/4095;
@@ -302,9 +297,9 @@ void TaskLCDcode( void * pvParameters ){
     gainBar.pushSprite(300,0);
     if(countForDataDisp++ > 100){
       mainDisp.fillScreen(TFT_BLACK);
-      mainDisp.setTextDatum(MR_DATUM);
+//      mainDisp.setTextDatum(TR_DATUM); //TODO: right allign
       mainDisp.setTextColor(TFT_BLUE,TFT_BLACK,true);
-//      mainDisp.drawNumber(sensorDispData,0,30); //TODO: right allign
+      mainDisp.drawNumber(sensorDispData,0,0);
       countForDataDisp = 0;
     }
 
@@ -312,6 +307,7 @@ void TaskLCDcode( void * pvParameters ){
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
     tft.drawNumber((current.getData()*150)/4095,5,155);
+    tft.drawNumber(gainDispData,285,155);
     if((millis() - setupTime > 3000) && (autoSetup)){
       btn[bSetup]->drawSmoothButton(true);
       autoSetup = false;
