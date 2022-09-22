@@ -39,7 +39,7 @@ ButtonWidget btnS2 = ButtonWidget(&tft);//SENSOR2
 
 #define BUTTON_W 50
 #define BUTTON_H 50
-static uint32_t setupTime = millis();
+//static uint32_t setupTime = millis();
 bool autoSetup = false;
 ButtonWidget* btn[] = {&btnL, &btnA, &btnM, &btnC, &btnS, &btnR, &btnS1, &btnS2};
 uint8_t buttonCount = sizeof(btn) / sizeof(btn[0]);
@@ -70,10 +70,8 @@ void btn_pressAction(void){
     case(bSetup) : 
     {
 //      controller.setOperatingMode(MANUAL);
-      setupTime = millis();
       if(autoSetup == false) {
         autoSetup = true;
-        Serial.println("*");
       } else {
         autoSetup = false;
       }
@@ -155,7 +153,17 @@ void btn_releaseAction(void){
       }
       case(bSetup) : 
       {
-        btn[bSetup]->drawSmoothButton(false);
+        if(autoSetup == true) {
+          btn[bSetup]->drawSmoothButton(false);
+          tft.setTextColor(TFT_WHITE);
+          tft.drawString("set gain",90,50);
+          Serial.println("*");
+        } else {
+          btn[bSetup]->drawSmoothButton(true);
+          tft.setTextColor(TFT_BLACK);
+          tft.drawString("set gain",90,50);
+          Serial.println("!");
+        }
         break;
       }
       case(bS1) : 
@@ -219,6 +227,7 @@ void setup(){
   mainDisp.setTextColor(TFT_ORANGE,TFT_BLACK,true);
   mainDisp.setTextSize(5);
   mainDisp.drawNumber(9999,0,0);
+  tft.drawRect(9,171,302,12,TFT_WHITE);
 
   xTaskCreatePinnedToCore(TaskLCDcode, "TaskLCD", 10000, NULL, 1, &TaskLCD, 0);
   delay(500);
@@ -258,7 +267,7 @@ void TaskCtrlcode( void * pvParameters ){
 void TaskLCDcode( void * pvParameters ){
   Serial.print("TaskLCD running on core ");
   Serial.println(xPortGetCoreID());
-  uint16_t sensorDispData = 0, currentDispData = 0, gainDispData = 0;
+  uint16_t sensorDispData = 0, currentDispData = 0, gainDispData = 0, gp = 0;
   while(1){
     static uint32_t scanTime = millis();
     uint16_t t_x = 9999, t_y = 9999; // To store the touch coordinates
@@ -284,15 +293,18 @@ void TaskLCDcode( void * pvParameters ){
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_BLACK);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_BLACK);
     gainBar.fillRect(0,150-(gainDispData),10,gainDispData,TFT_BLACK);
+    sensorBar.fillRect((gp*300)/4095,0,3,10,TFT_BLACK);
 
     sensorDispData = activeSensor->getData();
     currentDispData = (current.getData()*150)/4095;
     gainDispData = activeSensor->getGain();
+    gp = activeSensor->getGuidePoint();
+    
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_RED);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_RED);
     gainBar.fillRect(0,150-(gainDispData),10,gainDispData,TFT_RED);
-    sensorBar.fillRect((activeSensor->getGuidePoint()*300)/4095,0,3,10,TFT_BLUE);
-    sensorBar.pushSprite(10, 170);
+    sensorBar.fillRect((gp*300)/4095,0,3,10,TFT_BLUE);
+    sensorBar.pushSprite(10, 172);
     currentBar.pushSprite(10,0);
     gainBar.pushSprite(300,0);
     if(countForDataDisp++ > 100){
@@ -308,11 +320,11 @@ void TaskLCDcode( void * pvParameters ){
     tft.setTextColor(TFT_YELLOW,TFT_BLACK,true);
     tft.drawNumber((current.getData()*150)/4095,5,155);
     tft.drawNumber(gainDispData,285,155);
-    if((millis() - setupTime > 3000) && (autoSetup)){
-      btn[bSetup]->drawSmoothButton(true);
-      autoSetup = false;
-      Serial.println("!");      
-    }
+//    if((millis() - setupTime > 3000) && (autoSetup)){
+//      btn[bSetup]->drawSmoothButton(true);
+//      autoSetup = false;
+//      Serial.println("!");      
+//    }
   }
 }
 void loop(){
