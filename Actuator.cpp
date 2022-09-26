@@ -4,12 +4,23 @@
 ** Function name:           Actuator
 ** Description:             Constructor , we must stop actuator in begning
 ***************************************************************************************/
-Actuator::Actuator(int A_pin, int B_pin, int pwm_pin, bool fb)	
+Actuator::Actuator(int A_pin, int B_pin, int pwm_pin, bool fb, int crnt)
 {
   m_Apin = A_pin;
   m_Bpin = B_pin;
 	m_pwmPin = pwm_pin;
 	m_feedback = fb;
+  m_current = crnt;
+}
+
+int Actuator::getCurrent()
+{
+  return m_current;
+}
+
+void Actuator::setCurrent(int crnt)
+{
+  m_current = crnt;
 }
 void Actuator::actuatorInit(void)
 {

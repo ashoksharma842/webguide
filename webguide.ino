@@ -40,7 +40,7 @@ ButtonWidget btnS2 = ButtonWidget(&tft);//SENSOR2
 #define BUTTON_W 50
 #define BUTTON_H 50
 //static uint32_t setupTime = millis();
-bool autoSetup = false;
+bool autoSetup = false, currentSetup = false;
 ButtonWidget* btn[] = {&btnL, &btnA, &btnM, &btnC, &btnS, &btnR, &btnS1, &btnS2};
 uint8_t buttonCount = sizeof(btn) / sizeof(btn[0]);
 uint8_t b = 2;//for counting buttons
@@ -70,10 +70,18 @@ void btn_pressAction(void){
     case(bSetup) : 
     {
 //      controller.setOperatingMode(MANUAL);
-      if(autoSetup == false) {
-        autoSetup = true;
-      } else {
-        autoSetup = false;
+      if(controller.getOperatingMode() == AUTO){
+        if(autoSetup == false) {
+          autoSetup = true;
+        } else {
+          autoSetup = false;
+        }
+      } else if(controller.getOperatingMode() == MANUAL){
+        if(currentSetup == false) {
+          currentSetup = true;
+        } else {
+          currentSetup = false;
+        }
       }
       break;
     }
@@ -107,6 +115,10 @@ void btn_pressAction(void){
           Serial.print("Gain: ");
           Serial.println(activeSensor->getGain());
         }
+      } else {
+        if(currentSetup){
+          actuator.setCurrent(actuator.getCurrent()+5);
+        }
       }
       break;
     }
@@ -121,6 +133,10 @@ void btn_pressAction(void){
           activeSensor->setGain(activeSensor->getGain()+1);
           Serial.print("Gain: ");
           Serial.println(activeSensor->getGain());
+        }
+      } else {
+        if(currentSetup){
+          actuator.setCurrent(actuator.getCurrent()-5);
         }
       }
       break;
@@ -153,15 +169,23 @@ void btn_releaseAction(void){
       }
       case(bSetup) : 
       {
-        if(autoSetup == true) {
+        if((autoSetup == true)||(currentSetup == true)) {
           btn[bSetup]->drawSmoothButton(false);
           tft.setTextColor(TFT_WHITE);
-          tft.drawString("set gain",90,50);
+          if(controller.getOperatingMode() == AUTO){
+            tft.drawString("set gain",90,50);
+          } else if(controller.getOperatingMode() == MANUAL){
+            tft.drawString("set crnt",90,50);
+          }
           Serial.println("*");
         } else {
           btn[bSetup]->drawSmoothButton(true);
           tft.setTextColor(TFT_BLACK);
-          tft.drawString("set gain",90,50);
+          if(controller.getOperatingMode() == AUTO){
+            tft.drawString("set gain",90,50);
+          } else if(controller.getOperatingMode() == MANUAL){
+            tft.drawString("set crnt",90,50);
+          }
           Serial.println("!");
         }
         break;
