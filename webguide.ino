@@ -11,10 +11,10 @@
 #include "Actuator.h"
 #include "calibration.h"
 TFT_eSPI tft = TFT_eSPI();
-TFT_eSprite sensorBar = TFT_eSprite(&tft);
+TFT_eSprite sensorBar  = TFT_eSprite(&tft);
 TFT_eSprite currentBar = TFT_eSprite(&tft);
-TFT_eSprite gainBar = TFT_eSprite(&tft);
-TFT_eSprite mainDisp = TFT_eSprite(&tft);
+TFT_eSprite gainBar    = TFT_eSprite(&tft);
+TFT_eSprite mainDisp   = TFT_eSprite(&tft);
 Controller controller = Controller();
 Sensor sensor1 = Sensor(2048,32); // 50 gp, adc pin 32
 Sensor sensor2 = Sensor(2048,33); // 50 gp, adc pin 33
@@ -28,12 +28,12 @@ enum {bLeft, bAuto, bManual, bCenter, bSetup, bRight, bS1, bS2};
 
 TaskHandle_t TaskLCD;
 TaskHandle_t TaskCtrl;
-ButtonWidget btnL = ButtonWidget(&tft);//LEFT
-ButtonWidget btnA = ButtonWidget(&tft);//AUTO
-ButtonWidget btnM = ButtonWidget(&tft);//MANUAL
-ButtonWidget btnC = ButtonWidget(&tft);//CENTER
-ButtonWidget btnS = ButtonWidget(&tft);//SETTING
-ButtonWidget btnR = ButtonWidget(&tft);//RIGHT
+ButtonWidget btnL  = ButtonWidget(&tft);//LEFT
+ButtonWidget btnA  = ButtonWidget(&tft);//AUTO
+ButtonWidget btnM  = ButtonWidget(&tft);//MANUAL
+ButtonWidget btnC  = ButtonWidget(&tft);//CENTER
+ButtonWidget btnS  = ButtonWidget(&tft);//SETTING
+ButtonWidget btnR  = ButtonWidget(&tft);//RIGHT
 ButtonWidget btnS1 = ButtonWidget(&tft);//SENSOR1
 ButtonWidget btnS2 = ButtonWidget(&tft);//SENSOR2
 
@@ -45,193 +45,237 @@ ButtonWidget* btn[] = {&btnL, &btnA, &btnM, &btnC, &btnS, &btnR, &btnS1, &btnS2}
 uint8_t buttonCount = sizeof(btn) / sizeof(btn[0]);
 uint8_t b = 2;//for counting buttons
 int prevDispData = 1, dispData = 0, countForDataDisp = 0;
-void btn_pressAction(void){
-  if (btn[b]->justPressed()) {
-    btn[b]->drawSmoothButton(false);
-  }
-  switch(b){
-    case(bAuto) : 
-    {
-      controller.setOperatingMode(AUTO);
-      controller.getGuidingMode() == S1 ? activeSensor = &sensor1 : activeSensor = &sensor2;
-      break;
-    }
-    case(bManual) : 
-    {
-      controller.setOperatingMode(MANUAL);
-      break;
-    }
-    case(bCenter) : 
-    {
-      controller.setOperatingMode(SC);
-      activeSensor = &limitSwitch;
-      break;
-    }
-    case(bSetup) : 
-    {
-//      controller.setOperatingMode(MANUAL);
-      if(controller.getOperatingMode() == AUTO){
-        if(autoSetup == false) {
-          autoSetup = true;
-        } else {
-          autoSetup = false;
-        }
-      } else if(controller.getOperatingMode() == MANUAL){
-        if(currentSetup == false) {
-          currentSetup = true;
-        } else {
-          currentSetup = false;
-        }
-      }
-      break;
-    }
-    case(bS1) : 
-    {
-      controller.setGuidingMode(S1);
-      if(controller.getOperatingMode()==AUTO)
-      {
-        activeSensor = &sensor1;
-      }
-      break;
-    }
-    case(bS2) : 
-    {
-      controller.setGuidingMode(S2);
-      if(controller.getOperatingMode()==AUTO)
-      {
-        activeSensor = &sensor2;
-      }
-      break;
-    }
-    case(bLeft) : 
-    {
-      if(controller.getOperatingMode()){
-        if(!autoSetup){
-          activeSensor->setGuidePoint(activeSensor->getGuidePoint()-30);
-          Serial.print("GP: ");
-          Serial.println(activeSensor->getGuidePoint());
-        } else {
-          activeSensor->setGain(activeSensor->getGain()-1);
-          Serial.print("Gain: ");
-          Serial.println(activeSensor->getGain());
-        }
-      } else {
-        if(currentSetup){
-          actuator.setCurrent(actuator.getCurrent()+5);
-        }
-      }
-      break;
-    }
-    case(bRight) : 
-    {
-      if(controller.getOperatingMode()){
-        if(!autoSetup){
-          activeSensor->setGuidePoint(activeSensor->getGuidePoint()+30);
-          Serial.print("GP: ");
-          Serial.println(activeSensor->getGuidePoint());
-        } else {
-          activeSensor->setGain(activeSensor->getGain()+1);
-          Serial.print("Gain: ");
-          Serial.println(activeSensor->getGain());
-        }
-      } else {
-        if(currentSetup){
-          actuator.setCurrent(actuator.getCurrent()-5);
-        }
-      }
-      break;
-    }
-  }
+static uint32_t waitTime = 1000;
 
+//call back functions 
+void incGP(void){
+	activeSensor->setGuidePoint(activeSensor->getGuidePoint()+30);
+	Serial.print("GP: ");
+	Serial.println(activeSensor->getGuidePoint());
 }
+void decGP(void){
+	activeSensor->setGuidePoint(activeSensor->getGuidePoint()-30);
+	Serial.print("GP: ");
+	Serial.println(activeSensor->getGuidePoint());
+}
+void incGain(void){
+	activeSensor->setGain(activeSensor->getGain()+1);
+	Serial.print("Gain: ");
+	Serial.println(activeSensor->getGain());
+}
+void decGain(void){
+	activeSensor->setGain(activeSensor->getGain()-1);
+	Serial.print("Gain: ");
+	Serial.println(activeSensor->getGain());
+}
+void incCurrent(void){
+	actuator.setCurrent(actuator.getCurrent()+5);
+	Serial.print("Current: ");
+	Serial.println(actuator.getCurrent());
+}
+void decCurrent(void){
+	actuator.setCurrent(actuator.getCurrent()-5);
+	Serial.print("Current: ");
+	Serial.println(actuator.getCurrent());
+}
+void moveActuatorLeft(void){
+	actuator.actuatorMove(80);
+}
+void moveActuatorRight(void){
+	actuator.actuatorMove(-80);
+}
+void AutoPressed(void){
+	this->drawSmoothButton(false);
+	controller.setOperatingMode(AUTO);
+	controller.getGuidingMode() == S1 ? activeSensor = &sensor1 : activeSensor = &sensor2;
+	//set right left arrow to gain 
+	if(autoSetup){
+		btn[bLeft]->setPressAction(incGain);
+		btn[bRight]->setPressAction(decGain);
+	} else {
+		btn[bLeft]->setPressAction(incGP);
+		btn[bRight]->setPressAction(decGP);		
+	}
+	
+}
+void ManualPressed(void){
+	this->drawSmoothButton(false);
+	controller.setOperatingMode(MANUAL);
+	//set right left arrow to move actuator 
+	btn[bLeft]->setPressAction(moveActuatorLeft);
+	btn[bRight]->setPressAction(moveActuatorRight);
+}
+void SCPressed(void){
+	this->drawSmoothButton(false);
+	controller.setOperatingMode(SC);
+	activeSensor = &limitSwitch;
+	//set right left arrow to gain
+}
+void SetupPressed(void){
+	this->drawSmoothButton(false);
+	if(controller.getOperatingMode() == AUTO){
+		if(autoSetup == false) {
+			autoSetup = true;
+		} else {
+			autoSetup = false;
+		}
+	} else if(controller.getOperatingMode() == MANUAL){
+		if(currentSetup == false) {
+			currentSetup = true;
+		} else {
+			currentSetup = false;
+		}
+	}
+	//set right left arrow to gain
+}
+void S1Pressed(void){
+	this->drawSmoothButton(false);
+	controller.setGuidingMode(S1);
+	if(controller.getOperatingMode()==AUTO)
+	{
+		activeSensor = &sensor1;
+	}
+}
+void S2Pressed(void){
+	this->drawSmoothButton(false);
+	controller.setGuidingMode(S2);
+	if(controller.getOperatingMode()==AUTO)
+	{
+		activeSensor = &sensor2;
+	}
+}
+	
 void btn_releaseAction(void){
-  static uint32_t waitTime = 1000;
-  if (btn[b]->justReleased()) {
-    btn[b]->drawSmoothButton(false);
-    switch(b){
-      case(bAuto) : 
-      {
-        btn[bManual]->drawSmoothButton(true);
-        btn[bCenter]->drawSmoothButton(true);
-        break;
-      }
-      case(bManual) : 
-      {
-        btn[bAuto]->drawSmoothButton(true);
-        btn[bCenter]->drawSmoothButton(true);
-        break;
-      }
-      case(bCenter) : 
-      {
-        btn[bAuto]->drawSmoothButton(true);
-        btn[bManual]->drawSmoothButton(true);
-        break;
-      }
-      case(bSetup) : 
-      {
-        if((autoSetup == true)||(currentSetup == true)) {
-          btn[bSetup]->drawSmoothButton(false);
-          tft.setTextColor(TFT_WHITE);
-          if(controller.getOperatingMode() == AUTO){
-            tft.drawString("set gain",90,50);
-          } else if(controller.getOperatingMode() == MANUAL){
-            tft.drawString("set crnt",90,50);
-          }
-          Serial.println("*");
-        } else {
-          btn[bSetup]->drawSmoothButton(true);
-          tft.setTextColor(TFT_BLACK);
-          if(controller.getOperatingMode() == AUTO){
-            tft.drawString("set gain",90,50);
-          } else if(controller.getOperatingMode() == MANUAL){
-            tft.drawString("set crnt",90,50);
-          }
-          Serial.println("!");
-        }
-        break;
-      }
-      case(bS1) : 
-      {
-        btn[bS2]->drawSmoothButton(true);
-        break;
-      }
-      case(bS2) : 
-      {
-        btn[bS1]->drawSmoothButton(true);
-        break;
-      }
+	waitTime = 1000;
+	if (this->justReleased()) {
+		this->drawSmoothButton(true);
+		this->setReleaseTime(millis());
+		waitTime = 10000;
+	}else{
+		if (millis() - this->getReleaseTime() >= waitTime) {
+			waitTime = 1000;
+			this->setReleaseTime(millis());
+			this->drawSmoothButton(!this->getState());
+		}
     }
-    btn[bLeft]->drawSmoothButton(true);
-    btn[bRight]->drawSmoothButton(true);
-
-    btn[b]->setReleaseTime(millis());
-    waitTime = 10000;
-  }
-  else {
-    if (millis() - btn[b]->getReleaseTime() >= waitTime) {
-      waitTime = 1000;
-      btn[b]->setReleaseTime(millis());
-    }
-  }
 }
+void Auto_releaseAction(void){
+	waitTime = 1000;
+	if (this->justReleased()) {
+		this->drawSmoothButton(true);
+		btn[bManual]->drawSmoothButton(true);
+        btn[bCenter]->drawSmoothButton(true);
+		this->setReleaseTime(millis());
+		waitTime = 10000;
+	}else{
+		if (millis() - this->getReleaseTime() >= waitTime) {
+			waitTime = 1000;
+			this->setReleaseTime(millis());
+			this->drawSmoothButton(!this->getState());
+		}
+    }
+}
+void Manual_releaseAction(void){
+	waitTime = 1000;
+	if (this->justReleased()) {
+		this->drawSmoothButton(true);
+		btn[bAuto]->drawSmoothButton(true);
+        btn[bCenter]->drawSmoothButton(true);
+		this->setReleaseTime(millis());
+		waitTime = 10000;
+	}else{
+		if (millis() - this->getReleaseTime() >= waitTime) {
+			waitTime = 1000;
+			this->setReleaseTime(millis());
+			this->drawSmoothButton(!this->getState());
+		}
+    }
+}
+void Center_releaseAction(void){
+	waitTime = 1000;
+	if (this->justReleased()) {
+		this->drawSmoothButton(true);
+		btn[bAuto]->drawSmoothButton(true);
+        btn[bManual]->drawSmoothButton(true);
+		this->setReleaseTime(millis());
+		waitTime = 10000;
+	}else{
+		if (millis() - this->getReleaseTime() >= waitTime) {
+			waitTime = 1000;
+			this->setReleaseTime(millis());
+			this->drawSmoothButton(!this->getState());
+		}
+    }
+}
+void Setup_releaseAction(void){
+	waitTime = 1000;
+	if (this->justReleased()) {
+		this->drawSmoothButton(true);
+		if((autoSetup == true)||(currentSetup == true)) {
+			btn[bSetup]->drawSmoothButton(false);
+			tft.setTextColor(TFT_WHITE);
+			if(controller.getOperatingMode() == AUTO){
+				tft.drawString("set gain",90,50);
+			} else if(controller.getOperatingMode() == MANUAL){
+				tft.drawString("set crnt",90,50);
+			}
+			Serial.println("*");
+        } else {
+			btn[bSetup]->drawSmoothButton(true);
+			tft.setTextColor(TFT_BLACK);
+			if(controller.getOperatingMode() == AUTO){
+				tft.drawString("set gain",90,50);
+			} else if(controller.getOperatingMode() == MANUAL){
+				tft.drawString("set crnt",90,50);
+			}
+			Serial.println("!");
+        }
+		this->setReleaseTime(millis());
+		waitTime = 10000;
+	}else{
+		if (millis() - this->getReleaseTime() >= waitTime) {
+			waitTime = 1000;
+			this->setReleaseTime(millis());
+			this->drawSmoothButton(!this->getState());
+		}
+    }
+}
+
 void initButtons(){
   uint16_t x = 10;
   uint16_t y = 190;
 
-  btn[0]->initButtonUL(x, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, "<" , TEXT_SIZE);
-  btn[1]->initButtonUL(x+50, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "A" , TEXT_SIZE);
-  btn[2]->initButtonUL(x+100, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "M" , TEXT_SIZE);
-  btn[3]->initButtonUL(x+150, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "C" , TEXT_SIZE);
-  btn[4]->initButtonUL(x+200, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "S" , TEXT_SIZE);
-  btn[5]->initButtonUL(x+250, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, ">" , TEXT_SIZE);
-  btn[6]->initButtonUL(x+20, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S1" , TEXT_SIZE);
-  btn[7]->initButtonUL(x+230, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S2" , TEXT_SIZE);
+  btn[bLeft		]->initButtonUL(x, 		y, 		BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, 	TFT_BLACK, "<" ,  TEXT_SIZE);
+  btn[bAuto		]->initButtonUL(x+50, 	y, 		BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, 	TFT_BLACK, "A" ,  TEXT_SIZE);
+  btn[bManual	]->initButtonUL(x+100, 	y, 		BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, 	TFT_BLACK, "M" ,  TEXT_SIZE);
+  btn[bCenter	]->initButtonUL(x+150, 	y, 		BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, 	TFT_BLACK, "C" ,  TEXT_SIZE);
+  btn[bSetup	]->initButtonUL(x+200, 	y, 		BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, 	TFT_BLACK, "S" ,  TEXT_SIZE);
+  btn[bRight	]->initButtonUL(x+250, 	y, 		BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, 	TFT_BLACK, ">" ,  TEXT_SIZE);
+  btn[bS1		]->initButtonUL(x+20, 	y-100, 	BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, 	TFT_BLACK, "S1" , TEXT_SIZE);
+  btn[bS2		]->initButtonUL(x+230, 	y-100, 	BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, 	TFT_BLACK, "S2" , TEXT_SIZE);
 
-  for(int i = 0; i < 8; i++){
-    btn[i]->setPressAction(btn_pressAction);
-    btn[i]->setReleaseAction(btn_releaseAction);
+  btn[bLeft		]->setReleaseAction(decGP);
+  btn[bAuto		]->setReleaseAction(AutoPressed);
+  btn[bManual	]->setReleaseAction(ManualPressed);
+  btn[bCenter	]->setReleaseAction(SCPressed);
+  btn[bSetup	]->setReleaseAction(SetupPressed);
+  btn[bRight	]->setReleaseAction(incGP);
+  btn[bS1		]->setReleaseAction(S1Pressed);
+  btn[bS2		]->setReleaseAction(S2Pressed);
+
+  btn[bLeft		]->setPressAction(btn_releaseAction);
+  btn[bAuto		]->setPressAction(Auto_releaseAction);
+  btn[bManual	]->setPressAction(Manual_releaseAction);
+  btn[bCenter	]->setPressAction(Center_releaseAction);
+  btn[bSetup	]->setPressAction(SetupPressed);
+  btn[bRight	]->setPressAction(btn_releaseAction);
+  btn[bS1		]->setPressAction(btn_releaseAction);
+  btn[bS2		]->setPressAction(btn_releaseAction);
+
+ for(int i = 0; i < 8; i++){
     btn[i]->drawSmoothButton(true, 3, TFT_BLACK);
   }
+  
   btn[bManual]->drawSmoothButton(false);
   btn[bS1]->drawSmoothButton(false);
 }
@@ -258,6 +302,8 @@ void setup(){
   xTaskCreatePinnedToCore(TaskCtrlcode, "TaskCtrl", 10000, NULL, 1, &TaskCtrl, 1);
   delay(500);
 }
+
+
 void TaskCtrlcode( void * pvParameters ){
   Serial.print("TaskCtrl running on core ");
   Serial.println(xPortGetCoreID());
@@ -288,6 +334,8 @@ void TaskCtrlcode( void * pvParameters ){
     delay(1);
   }
 }
+
+
 void TaskLCDcode( void * pvParameters ){
   Serial.print("TaskLCD running on core ");
   Serial.println(xPortGetCoreID());
@@ -314,23 +362,27 @@ void TaskLCDcode( void * pvParameters ){
         }
       }
     }
+	//clear main screen
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_BLACK);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_BLACK);
     gainBar.fillRect(0,150-(gainDispData),10,gainDispData,TFT_BLACK);
     sensorBar.fillRect((gp*300)/4095,0,3,10,TFT_BLACK);
-
+	//update variables
     sensorDispData = activeSensor->getData();
     currentDispData = (current.getData()*150)/4095;
     gainDispData = activeSensor->getGain();
     gp = activeSensor->getGuidePoint();
-    
+    //rewrite main screen
     sensorBar.fillRect(0,0,(sensorDispData*300)/4095,10,TFT_RED);
     currentBar.fillRect(0,150-(currentDispData),10,current.getData()/2,TFT_RED);
     gainBar.fillRect(0,150-(gainDispData),10,gainDispData,TFT_RED);
     sensorBar.fillRect((gp*300)/4095,0,3,10,TFT_BLUE);
+	//push sprites
     sensorBar.pushSprite(10, 172);
     currentBar.pushSprite(10,0);
     gainBar.pushSprite(300,0);
+	
+	//display main text
     if(countForDataDisp++ > 100){
       mainDisp.fillScreen(TFT_BLACK);
 //      mainDisp.setTextDatum(TR_DATUM); //TODO: right allign
@@ -349,6 +401,7 @@ void TaskLCDcode( void * pvParameters ){
 //      autoSetup = false;
 //      Serial.println("!");      
 //    }
+	delay(1);
   }
 }
 void loop(){
