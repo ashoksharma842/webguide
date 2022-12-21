@@ -45,7 +45,14 @@ ButtonWidget* btn[] = {&btnL, &btnA, &btnM, &btnC, &btnS, &btnR, &btnS1, &btnS2}
 uint8_t buttonCount = sizeof(btn) / sizeof(btn[0]);
 uint8_t b = 2;//for counting buttons
 int prevDispData = 1, dispData = 0, countForDataDisp = 0;
+const int AutoRemote = 5;
+const int ManualRemote = 16;
+const int SCRemote = 17;
+const int S1Remote = 12;
+const int S2Remote = 22;
+const int Relay = 12;
 void btn_pressAction(void){
+  Serial.println("pressedAction called");
   if (btn[b]->justPressed()) {
     btn[b]->drawSmoothButton(false);
   }
@@ -252,6 +259,12 @@ void setup(){
   mainDisp.setTextSize(5);
   mainDisp.drawNumber(9999,0,0);
   tft.drawRect(9,171,302,12,TFT_WHITE);
+  pinMode(AutoRemote, INPUT);
+  pinMode(ManualRemote, INPUT);
+  pinMode(SCRemote, INPUT);
+  pinMode(S1Remote, INPUT);
+  pinMode(S2Remote, INPUT);
+  pinMode(Relay, OUTPUT);
 
   xTaskCreatePinnedToCore(TaskLCDcode, "TaskLCD", 10000, NULL, 1, &TaskLCD, 0);
   delay(500);
@@ -264,6 +277,21 @@ void TaskCtrlcode( void * pvParameters ){
   eGuidingMode currentGuidingMode, prevGuidingMode;
   eOperatingMode currentOperatingMode, prevOperatingMode;
   while(1){
+    if (digitalRead(AutoRemote) == LOW){
+      btn[bAuto]->press(true);
+      Serial.println("AutoRemote button pressed");
+      btn[bAuto]->pressAction();
+      btn[bAuto]->releaseAction();
+      digitalWrite(Relay, false);
+    }else{
+      btn[bAuto]->press(false);
+      digitalWrite(Relay, true);
+      btn[bAuto]->releaseAction();
+    }
+    if (digitalRead(ManualRemote) == LOW)Serial.println("ManualRemote button pressed");
+    if (digitalRead(SCRemote) == LOW)Serial.println("SCRemote button pressed");
+    if (digitalRead(S1Remote) == LOW)Serial.println("S1Remote button pressed");
+    if (digitalRead(S2Remote) == LOW)Serial.println("S2Remote button pressed");
     currentGuidingMode = controller.getGuidingMode();
     currentOperatingMode = controller.getOperatingMode();
     if(prevGuidingMode != currentGuidingMode){
@@ -285,13 +313,14 @@ void TaskCtrlcode( void * pvParameters ){
           actuator.actuatorMove(correction);
       }
     }
-    delay(1);
+    delay(100);
   }
 }
 void TaskLCDcode( void * pvParameters ){
   Serial.print("TaskLCD running on core ");
   Serial.println(xPortGetCoreID());
   uint16_t sensorDispData = 0, currentDispData = 0, gainDispData = 0, gp = 0;
+  bool LEDState = 0;
   while(1){
     static uint32_t scanTime = millis();
     uint16_t t_x = 9999, t_y = 9999; // To store the touch coordinates
@@ -337,6 +366,8 @@ void TaskLCDcode( void * pvParameters ){
       mainDisp.setTextColor(TFT_BLUE,TFT_BLACK,true);
       mainDisp.drawNumber(sensorDispData,0,0);
       countForDataDisp = 0;
+//      LEDState = !LEDState;
+//      digitalWrite(Relay, LEDState);
     }
 
     mainDisp.pushSprite(100,100);
@@ -349,6 +380,7 @@ void TaskLCDcode( void * pvParameters ){
 //      autoSetup = false;
 //      Serial.println("!");      
 //    }
+  delay(100);
   }
 }
 void loop(){
