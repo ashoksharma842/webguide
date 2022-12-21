@@ -55,6 +55,7 @@ const int Relay = 13;
 // const int Enable = 14;
 // const int In1 = 26;
 // const int In2 = 27;
+
 void btn_pressAction(void){
   Serial.println("pressedAction called");
   if (btn[b]->justPressed()) {
@@ -157,6 +158,7 @@ void btn_pressAction(void){
 }
 void btn_releaseAction(void){
   static uint32_t waitTime = 1000;
+  //Serial.println("releaseAction called");
   if (btn[b]->justReleased()) {
     btn[b]->drawSmoothButton(false);
     switch(b){
@@ -311,10 +313,16 @@ void TaskCtrlcode( void * pvParameters ){
       btn[bS2]->pressAction();
 	  buttons_state = bS2;
     }
-	if (buttons_state && (digitalRead(AutoRemote) || digitalRead(ManualRemote) || digitalRead(SCRemote) || digitalRead(S1Remote) || digitalRead(S2Remote))){
-		btn[buttons_state]->press(false);
-		btn[buttons_state]->releaseAction();
-	}
+    
+    if (buttons_state != 0){
+      Serial.print("buttons_state:");Serial.println(buttons_state);
+      if(digitalRead(AutoRemote) || digitalRead(ManualRemote) || digitalRead(SCRemote) || digitalRead(S1Remote) || digitalRead(S2Remote)){
+        btn[buttons_state]->press(false);
+        btn[buttons_state]->releaseAction();
+        buttons_state = 0;
+        digitalWrite(Relay, true);
+      }       
+    }
     if(prevGuidingMode != currentGuidingMode){
       Serial.print("Guiding mode:");
       Serial.println(currentGuidingMode);
