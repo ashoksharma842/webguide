@@ -50,7 +50,11 @@ const int ManualRemote = 16;
 const int SCRemote = 17;
 const int S1Remote = 12;
 const int S2Remote = 22;
-const int Relay = 12;
+const int Relay = 13;
+// enable, in1 and in2 are operated by actuator and are not actual LEDs
+// const int Enable = 14;
+// const int In1 = 26;
+// const int In2 = 27;
 void btn_pressAction(void){
   Serial.println("pressedAction called");
   if (btn[b]->justPressed()) {
@@ -225,14 +229,14 @@ void initButtons(){
   uint16_t x = 10;
   uint16_t y = 190;
 
-  btn[0]->initButtonUL(x, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, "<" , TEXT_SIZE);
-  btn[1]->initButtonUL(x+50, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "A" , TEXT_SIZE);
-  btn[2]->initButtonUL(x+100, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "M" , TEXT_SIZE);
-  btn[3]->initButtonUL(x+150, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "C" , TEXT_SIZE);
-  btn[4]->initButtonUL(x+200, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED, TFT_BLACK, "S" , TEXT_SIZE);
-  btn[5]->initButtonUL(x+250, y, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, ">" , TEXT_SIZE);
-  btn[6]->initButtonUL(x+20, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S1" , TEXT_SIZE);
-  btn[7]->initButtonUL(x+230, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE, TFT_BLACK, "S2" , TEXT_SIZE);
+  btn[bLeft  ]->initButtonUL(x,     y,     BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, "<" ,  TEXT_SIZE);
+  btn[bAuto  ]->initButtonUL(x+50,  y,     BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED,    TFT_BLACK, "A" ,  TEXT_SIZE);
+  btn[bManual]->initButtonUL(x+100, y,     BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED,    TFT_BLACK, "M" ,  TEXT_SIZE);
+  btn[bCenter]->initButtonUL(x+150, y,     BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED,    TFT_BLACK, "C" ,  TEXT_SIZE);
+  btn[bSetup ]->initButtonUL(x+200, y,     BUTTON_W, BUTTON_H, TFT_WHITE, TFT_RED,    TFT_BLACK, "S" ,  TEXT_SIZE);
+  btn[bRight ]->initButtonUL(x+250, y,     BUTTON_W, BUTTON_H, TFT_WHITE, TFT_YELLOW, TFT_BLACK, ">" ,  TEXT_SIZE);
+  btn[bS1    ]->initButtonUL(x+20,  y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE,   TFT_BLACK, "S1" , TEXT_SIZE);
+  btn[bS2    ]->initButtonUL(x+230, y-100, BUTTON_W, BUTTON_H, TFT_WHITE, TFT_BLUE,   TFT_BLACK, "S2" , TEXT_SIZE);
 
   for(int i = 0; i < 8; i++){
     btn[i]->setPressAction(btn_pressAction);
@@ -264,6 +268,7 @@ void setup(){
   pinMode(SCRemote, INPUT);
   pinMode(S1Remote, INPUT);
   pinMode(S2Remote, INPUT);
+  //LEDs
   pinMode(Relay, OUTPUT);
 
   xTaskCreatePinnedToCore(TaskLCDcode, "TaskLCD", 10000, NULL, 1, &TaskLCD, 0);
@@ -276,24 +281,40 @@ void TaskCtrlcode( void * pvParameters ){
   Serial.println(xPortGetCoreID());
   eGuidingMode currentGuidingMode, prevGuidingMode;
   eOperatingMode currentOperatingMode, prevOperatingMode;
+  static uint8_t buttons_state = 0;
   while(1){
-    if (digitalRead(AutoRemote) == LOW){
-      btn[bAuto]->press(true);
-      Serial.println("AutoRemote button pressed");
-      btn[bAuto]->pressAction();
-      btn[bAuto]->releaseAction();
-      digitalWrite(Relay, false);
-    }else{
-      btn[bAuto]->press(false);
-      digitalWrite(Relay, true);
-      btn[bAuto]->releaseAction();
-    }
-    if (digitalRead(ManualRemote) == LOW)Serial.println("ManualRemote button pressed");
-    if (digitalRead(SCRemote) == LOW)Serial.println("SCRemote button pressed");
-    if (digitalRead(S1Remote) == LOW)Serial.println("S1Remote button pressed");
-    if (digitalRead(S2Remote) == LOW)Serial.println("S2Remote button pressed");
     currentGuidingMode = controller.getGuidingMode();
     currentOperatingMode = controller.getOperatingMode();
+    if ((digitalRead(AutoRemote) == LOW) && (currentOperatingMode != AUTO)){
+      btn[bAuto]->press(true);
+      btn[bAuto]->pressAction();
+      digitalWrite(Relay, false);
+	  buttons_state = bAuto;
+    }
+    if ((digitalRead(ManualRemote) == LOW) && (currentOperatingMode != MANUAL)){
+      btn[bManual]->press(true);
+      btn[bManual]->pressAction();
+	  buttons_state = bManual;
+    }
+    if ((digitalRead(SCRemote) == LOW) && (currentOperatingMode != SC)){
+      btn[bCenter]->press(true);
+      btn[bCenter]->pressAction();
+	  buttons_state = bCenter;
+    }
+    if ((digitalRead(S1Remote) == LOW) && (currentGuidingMode != S1)){
+      btn[bS1]->press(true);
+      btn[bS1]->pressAction();
+	  buttons_state = bS1;
+    }
+    if ((digitalRead(S2Remote) == LOW) && (currentGuidingMode != S2)){
+      btn[bS2]->press(true);
+      btn[bS2]->pressAction();
+	  buttons_state = bS2;
+    }
+	if (buttons_state && (digitalRead(AutoRemote) || digitalRead(ManualRemote) || digitalRead(SCRemote) || digitalRead(S1Remote) || digitalRead(S2Remote))){
+		btn[buttons_state]->press(false);
+		btn[buttons_state]->releaseAction();
+	}
     if(prevGuidingMode != currentGuidingMode){
       Serial.print("Guiding mode:");
       Serial.println(currentGuidingMode);
